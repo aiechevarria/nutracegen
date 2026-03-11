@@ -1,8 +1,6 @@
 #include "Interpreter.h"
-#include "Misc.h"
-
-// Keeps modified addresses for future calculations
-std::unordered_map<unsigned long, unsigned long> memMap;
+#include "Parser.h"
+#include "Semantics.h"
 
 /**
  * Parses the code and generates trace.
@@ -14,7 +12,8 @@ std::unordered_map<unsigned long, unsigned long> memMap;
  */
 void interpretCode(std::string code, std::string* trace, std::vector<Variable>* variables, GeneratorSettings* settings) {
     // Clear the memory map
-    memMap.clear();
+    std::unordered_map<unsigned long, unsigned long> memMap;    // Memory map to store the results of operations
+    std::vector<Operation> opList;                              // The list of operations that will get interpreted
 
     // Print the starting comment to the trace
     trace->append("# Trace generated with ");
@@ -23,7 +22,15 @@ void interpretCode(std::string code, std::string* trace, std::vector<Variable>* 
     trace->append(APP_VERSION);
     trace->append("\n");
 
-    
+    // Preprocess the code prior to extracting units
+    preProcessCode(&code);
 
-    // printf("%s", trace->c_str());
+    if (debug) {
+        printf("Debug: Pre-processed output:\n");
+        printf("%s\n\n", code.c_str());
+        fflush(stdout);
+    }
+    
+    // Process the code and extract the operations
+    processCode(&code, &opList, 0);
 }

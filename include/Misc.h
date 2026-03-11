@@ -38,6 +38,7 @@
 // Parser
 #define ERROR_PARSE_NOVAR           "Error: No variables have been found on the input file.\n"
 #define ERROR_PARSE_NOVAR2          "No variables have been found on the input file. Check that the variables have a datatype assigned to them\n"
+#define ERROR_PARSE_FOR             "Error: Malformed or unfinished for loop detected.\n"
 
 // Misc
 #define ERROR_ASSIST_GENERAL        "Error: Something went wrong in the GUI assistant, please try again.\n"
