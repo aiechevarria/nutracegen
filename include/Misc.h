@@ -3,14 +3,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdexcept>
 #include <stdlib.h>
 #include <string>
 #include <vector>
 #include <ctype.h>
 #include <regex>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <unordered_map>
 #include <math.h>
+
+using namespace std;
 
 // App config
 #define APP_NAME "NuTracegen"
@@ -39,6 +44,11 @@
 #define ERROR_PARSE_NOVAR           "Error: No variables have been found on the input file.\n"
 #define ERROR_PARSE_NOVAR2          "No variables have been found on the input file. Check that the variables have a datatype assigned to them\n"
 #define ERROR_PARSE_FOR             "Error: Malformed or unfinished for loop detected.\n"
+#define ERROR_MISSING_CLOSE_BRACKET "Error: Missing close bracket in indexed variable\n" 
+#define ERROR_MISSING_OPEN_BRACKET  "Error: Missing open bracket in indexed variable\n" 
+#define ERROR_INDEXING_SCALAR       "Error: Cannot index scalar with brackets.\n" 
+#define ERROR_MISSING_INDEX         "Error: Missing index inside of brackets.\n" 
+#define ERROR_UNIDENTIFIED_INDEX    "Error: Unidentified index inside of brackets.\n" 
 
 // Misc
 #define ERROR_ASSIST_GENERAL        "Error: Something went wrong in the GUI assistant, please try again.\n"

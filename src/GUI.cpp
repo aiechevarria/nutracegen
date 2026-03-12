@@ -160,7 +160,7 @@ void GUI::renderPicker(char inputPath[MAX_PATH_LENGTH], ProgramState* state) {
  * @param message The message to display
  * @param toggle Boolean variable to toggle when the close button is pressed
  */
-void GUI::renderError(char* message, bool* toggle) {
+void GUI::renderError(const char* message, bool* toggle) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms
@@ -197,7 +197,7 @@ void GUI::renderError(char* message, bool* toggle) {
  * @param message The message to display
  * @param toggle Boolean variable to toggle when the close button is pressed
  */
-void GUI::renderInfo(char* message, bool* toggle) {
+void GUI::renderInfo(const char* message, bool* toggle) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms
@@ -237,7 +237,7 @@ void GUI::renderInfo(char* message, bool* toggle) {
  * @param settings The settings of the generator.
  * @param run If the user has clicked on the run button or not
  */
-void GUI::renderMainWorkspace(std::string code, std::string* trace, std::vector<Variable>* variables, GeneratorSettings* settings, ProgramState* state) {
+void GUI::renderMainWorkspace(string code, string* trace, vector<Variable>* variables, GeneratorSettings* settings, ProgramState* state) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms

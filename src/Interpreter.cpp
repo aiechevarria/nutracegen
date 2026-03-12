@@ -10,10 +10,10 @@
  * @param variables Pointer to the list of variables and their configurations
  * @param settings Pointer to the settings of the generator
  */
-void interpretCode(std::string code, std::string* trace, std::vector<Variable>* variables, GeneratorSettings* settings) {
+void interpretCode(string code, string* trace, vector<Variable>* variables, GeneratorSettings* settings) {
     // Clear the memory map
-    std::unordered_map<unsigned long, unsigned long> memMap;    // Memory map to store the results of operations
-    std::vector<Operation> opList;                              // The list of operations that will get interpreted
+    unordered_map<unsigned long, unsigned long> memMap;    // Memory map to store the results of operations
+    vector<Operation> opList;                              // The list of operations that will get interpreted
 
     // Print the starting comment to the trace
     trace->append("# Trace generated with ");
@@ -32,5 +32,5 @@ void interpretCode(std::string code, std::string* trace, std::vector<Variable>* 
     }
     
     // Process the code and extract the operations
-    processCode(&code, &opList, 0);
+    processCode(&code, &opList, variables, 0);
 }

@@ -10,6 +10,6 @@
 #include "Interpreter.h"
 
 typedef struct {
-    std::string inputFile;
+    string inputFile;
     bool debug = false;
 } AppArgs;

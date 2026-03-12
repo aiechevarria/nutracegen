@@ -5,8 +5,8 @@
 
 #define BUFFER_SIZE 4096
 
-std::string readFileToString(char inputPath[MAX_PATH_LENGTH]);
-bool writeStringToFile(char* filePath, std::string& content);
-bool parseVariables(std::string text, std::vector<Variable>* variables);
-void preProcessCode(std::string* code);
-void processCode(std::string* code, std::vector<Operation>* ops, std::vector<Variable>* vars, int index);
+string readFileToString(char inputPath[MAX_PATH_LENGTH]);
+bool writeStringToFile(char* filePath, string& content);
+bool parseVariables(string text, vector<Variable>* variables);
+void preProcessCode(string* code);
+void processCode(string* code, vector<Operation>* ops, vector<Variable>* vars, int index);

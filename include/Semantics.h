@@ -1,8 +1,6 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <string>
+#include "Misc.h"
 
 /*
  * Representation of various elements related to the pseudocode  
@@ -30,6 +28,14 @@ typedef enum {
     OP_COUNT
 } OperationType;
 
+// The number and name of operators in an instruction
+typedef enum {
+    OPR_DESTINATION,
+    OPR_OP1,
+    OPR_OP2,
+    OPR_COUNT
+} OperandType;
+
 // How can expression is written. List of supported syntaxes for assigning a value to a variable
 // The order matters, as the regular assignment is more common than the ones above and it will be detected first.
 typedef enum {
@@ -42,7 +48,7 @@ typedef enum {
 // The representation of a variable
 typedef struct {
     unsigned long address;  // The address of the variable. Stablished by the user
-    std::string name;
+    string name;
     DataType type;          // The number of bytes the array 
 } Variable;
 
@@ -56,18 +62,21 @@ typedef struct {
 
 // The representation of an operation that will get interpreted.
 typedef struct {
-    // uintptr_t can contain both pointers to variables or unsigned long scalars. It can be casted in a C-like style safely
-    uintptr_t dest;
-    uintptr_t indexDest;
-    uintptr_t op1;
-    uintptr_t indexOp1;
-    uintptr_t op2;
-    uintptr_t indexOp2;
-
-    bool isOp1Var, isOp2Var, isDestIndexVar, isIndexOp1Var, isIndexOp2Var;
     OperationType opType;
+    // uintptr_t can contain both pointers to variables or unsigned long scalars. It can be casted in a C-like style safely
+    // An instruction can have 2 (dest, op1) or 3 (dest, op1, op2) operands
+    uintptr_t operands[OPR_COUNT];
+    
+    // If an operand contains a pointer to a variable, it can be indexed. If it is not indexed, a 0 should be added at all times
+    uintptr_t indexes[OPR_COUNT];
+
+    // The operands and indexes can be vars
+    bool isOperandVar[OPR_COUNT];
+    bool isIndexVar[OPR_COUNT];
 } Operation;
 
 // Public functions
-std::string DataTypeToString(DataType type);
-std::string StatementOperatorToString(OperationType opType, StatementType staType);
+string DataTypeToString(DataType type);
+string OperandTypeToString(OperandType type);
+string StatementOperatorToString(OperationType opType, StatementType staType);
+Variable* getVariableByName(vector<Variable>* vars, string name);

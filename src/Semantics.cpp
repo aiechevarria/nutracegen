@@ -4,9 +4,9 @@
  * Maps a DataType to a string. 
  * 
  * @param type The DataType.
- * @return std::string The string that it relates to.
+ * @return string The string that it relates to.
  */
-std::string DataTypeToString(DataType type) {
+string DataTypeToString(DataType type) {
     switch (type)
     {
         case TYPE_CHAR:   return "char";
@@ -24,9 +24,9 @@ std::string DataTypeToString(DataType type) {
  * 
  * @param opType The OperationType.
  * @param staType The StatementType.
- * @return std::string The string that it relates to.
+ * @return string The string that it relates to.
  */
-std::string StatementOperatorToString(OperationType opType, StatementType staType) {
+string StatementOperatorToString(OperationType opType, StatementType staType) {
     if (staType == STATEMENT_ASSIGNMENT) return "=";
 
     switch (opType)
@@ -45,4 +45,35 @@ std::string StatementOperatorToString(OperationType opType, StatementType staTyp
             if (staType == STATEMENT_ASSIGMENT_AFTER_OPERATION) return "/";
         default:          return "?";
     }
+}
+
+/**
+ * Maps an OperandType to a string. 
+ * 
+ * @param type The Operand
+ * @return string The string that it relates to.
+ */
+string OperandTypeToString(OperandType type) {
+    switch (type)
+    {
+        case OPR_DESTINATION:   return "Dest";
+        case OPR_OP1:           return "OPR1";
+        case OPR_OP2:           return "OPR2";
+        default:                return "unknown";
+    }
+}
+
+/**
+ * Find a variable based on it's name.
+ * 
+ * @param vars The list of variables that have been identified.
+ * @param name The name of the variable to find.
+ * @return Variable* Pointer to the variable if found, nullptr if error.
+ */
+Variable* getVariableByName(vector<Variable>* vars, string name) {
+    for (auto& v : *vars) {
+        if(name == v.name) return &v;
+    }
+
+    return nullptr;
 }

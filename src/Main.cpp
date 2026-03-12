@@ -1,6 +1,7 @@
 #include "Main.h"
 
 bool debug = false;
+char* errorMessage;
 
 /**
  * Parses the CLI arguments.
@@ -22,7 +23,7 @@ AppArgs parseArguments(int argc, char** argv) {
     try {
         app.parse(argc, argv);
     } catch (const CLI::ParseError &e) {
-        std::exit(app.exit(e));
+        exit(app.exit(e));
     }
 
     return args;
@@ -33,7 +34,8 @@ int main(int argc, char** argv) {
     char inputPath[MAX_PATH_LENGTH] = "\0";
     ProgramState state = PICK_FILE;
     GeneratorSettings settings;
-    bool acceptedError = false;
+    bool acceptedError = false;     // TODO REMOVE THIS AND RETHINK THE ERRORS
+    bool errorHappened = false;
     bool isReady = false;           // If the user has chosen to generate the trace
 
     // Set up settings
@@ -42,9 +44,9 @@ int main(int argc, char** argv) {
     settings.destPath = (char*) malloc(sizeof(char) * MAX_PATH_LENGTH + 1);
 
     // Pseudocode structures
-    std::string code;
-    std::string trace;
-    std::vector<Variable> variables;
+    string code;
+    string trace;
+    vector<Variable> variables;
 
     // Arguments
     AppArgs args = parseArguments(argc, argv);
@@ -97,7 +99,7 @@ int main(int argc, char** argv) {
             case VALIDATE_FILE:
                 // If there is no content throw an error and go back to the file selector
                 if (code.empty()) {
-                    gui->renderError((char*) ERROR_FILE_GENERAL, &acceptedError);
+                    gui->renderError( ERROR_FILE_GENERAL, &acceptedError);
                 } else {
                     printf(INFO_FILE_READ);
                     state = PARSE_VARIABLES;
@@ -118,7 +120,7 @@ int main(int argc, char** argv) {
             case VALIDATE_VARIABLES:
                 // Validate that there are some variables, if not throw error
                 if (variables.empty()) {
-                    gui->renderError((char*) ERROR_PARSE_NOVAR2, &acceptedError);
+                    gui->renderError(ERROR_PARSE_NOVAR2, &acceptedError);
                 } else {
                     state = MAIN_WORKSPACE;
                 }
@@ -134,18 +136,29 @@ int main(int argc, char** argv) {
                 gui->renderMainWorkspace(code, &trace, &variables, &settings, &state);
                 break;
             case GENERATE_TRACE:
-                // Parse all the code and return to the main workspace
-                interpretCode(code, &trace, &variables, &settings);
-                state = MAIN_WORKSPACE;
+                if (!errorHappened) {
+                    // Try generating the trace
+                    try {
+                        interpretCode(code, &trace, &variables, &settings);
+                        state = MAIN_WORKSPACE;
+                    } catch (const runtime_error& e) {
+                        errorMessage = (char*) e.what();
+                        printf("%s", errorMessage);
+                        errorHappened = true;
+                    }
+                } else {
+                    gui->renderError(errorMessage, &errorHappened);
+                    trace.clear();
+                }
                 break;
 
             case SAVE_TRACE:
                 if (settings.destPath[0] == '\0') {
-                    gui->renderError((char*) ERROR_FILE_SAVEPATH, &acceptedError);
+                    gui->renderError(ERROR_FILE_SAVEPATH, &acceptedError);
                 } else if (!writeStringToFile(settings.destPath, trace)) {
-                    gui->renderError((char*) ERROR_FILE_SAVE, &acceptedError);
+                    gui->renderError(ERROR_FILE_SAVE, &acceptedError);
                 } else {
-                    gui->renderInfo((char*) INFO_FILE_SAVED, &acceptedError);
+                    gui->renderInfo(INFO_FILE_SAVED, &acceptedError);
                 }
 
                 if (acceptedError) {
