@@ -46,6 +46,8 @@ using namespace std;
 #define ERROR_INDEXING_SCALAR       "Error: Cannot index scalar with brackets.\n" 
 #define ERROR_MISSING_INDEX         "Error: Missing index inside of brackets.\n" 
 #define ERROR_UNIDENTIFIED_INDEX    "Error: Unidentified index inside of brackets.\n" 
+#define ERROR_MALFORMED_FOR         "Error: Malformed for arguments detected.\n" 
+#define ERROR_FOR_BRACKETS          "Error: Malformed for brackets detected.\n" 
 
 // Misc
 #define ERROR_ASSIST_GENERAL        "Error: Something went wrong in the GUI assistant, please try again.\n"

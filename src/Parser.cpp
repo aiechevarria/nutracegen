@@ -1,6 +1,18 @@
 #include "Parser.h"
 
 /**
+ * Checks if the unit contains the content string and returns a boolean. 
+ * 
+ * @param unit The text in which content will be searched
+ * @param content The string that must be in unit
+ * @return true if exists, false if not
+ */
+bool hasString(string unit, string content) {
+    if (unit.find(content) == string::npos) return false;
+    return true;
+}
+
+/**
  * Get all the lines that match a given regex
  * 
  * @param text 
@@ -140,8 +152,7 @@ void preProcessCode(string* code) {
     // Collapse multiple spaces into one
     *code = regex_replace(*code, regex("\\s+"), " ");
 
-    // 3. Add brackets to bracketless for-loops
-    // This regex looks for: for(...) [not a {] [anything up to a ;]
+    // Add brackets to bracketless for loops
     // Group 1: The for header: for(...)
     // Group 2: The single statement: ...;
     regex bracketlessFor(R"((for\s*\([^)]+\))\s*([^{;]+;))");
@@ -271,7 +282,7 @@ void extractOperandInformation(string unit, OperandType ot, Operation* op, vecto
  * @param unit The whole string of the operation to process. 
  * @param ops Pointer to a vector in which operations will be stored.
  * @param vars Pointer to a vector with all the variables to process.
- * @param index The index in which to insert the operation.
+ * @param index The index in which to insert the operation. The caller is responsible of incrementing it afterwards
  */
 void processOperation(string unit, vector<Operation>* ops, vector<Variable>* vars, int index) {
     Operation newOp;
@@ -302,17 +313,19 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
     }
 
     // Detect the type of operation
-    if (unit.find("+") && unit.find("=")) {             // Additions
+    if ((hasString("unit", "+") && hasString("unit", "=")) || hasString(unit, "++")) {             // Additions
         newOp.opType = OP_ADD;
-    } else if (unit.find("-") && unit.find("=")) {      // Substractions
+    } else if ((hasString("unit", "-") && hasString("unit", "=")) || hasString(unit, "--")) {             // Additions
         newOp.opType = OP_SUB;
-    } else if (unit.find("*") && unit.find("=")) {      // Multiplications
+    } else if (hasString("unit", "*") && hasString("unit", "=")) {      // Multiplications
         newOp.opType = OP_MUL;
-    } else if (unit.find("/") && unit.find("=")) {      // Divisions
+    } else if (hasString("unit", "/") && hasString("unit", "=")) {      // Divisions
         newOp.opType = OP_DIV;
-    } else if (unit.find("=")) {                           // Assignments
+    } else if (hasString("unit", "=")) {                           // Assignments
         newOp.opType = OP_EQUAL;
     } else if (debug) printf("Debug: Warning, unrecognized operation: %s\n", unit.c_str());
+
+    if (debug) printf("Debug: Processing %s, %s\n", OperationTypeToString(newOp.opType).c_str(), unit.c_str());
 
     // Extract the operands
     // Operations can have 3 different statement types:
@@ -352,7 +365,15 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
         }
     }
 
+    // An exception to process ++ and -- because the above does not :P
+    if (hasString(unit, "++") || hasString(unit, "--")) {
+        pos = unit.find("++");
+        if (pos == string::npos) pos = unit.find("--");
 
+        dest = unit.substr(0, pos);     // The dest is at the right of the operator.
+        op1 = unit.substr(0, pos);      // Since this is compound, one of the operands is the destination.
+        op2 = "1"; 
+    }
 
     // Extract the information of each operand
     extractOperandInformation(dest, OPR_DESTINATION, &newOp, vars);
@@ -364,31 +385,120 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
 }
 
 /**
- * Processes a for loop and recursively processes every other instruction inside of it.
+ * Processes a conditional and stores it at a given index in the ops structure.
+ * Branch destinations point to index 0 by default. It is up to the caller to set the branch destination.
+ * 
+ * @param unit 
+ * @param ops 
+ * @param vars 
+ * @param index 
  */
-void processForLoop(string code, vector<Operation>* ops, int index) {
-    // // Regex breakdown:
-    // // for\s*\(\s*(\w+)\s*=\s*(\d+)\s*;      matches 'for ( i = 0 ;'
-    // // \s*\1\s*<\s*(\d+)\s*;                 matches 'i < 10 ;'
-    // // \s*(\w+\+\+| \+\+\w+)\s*\)            matches 'i++)'
-    // regex forPattern(R"(for\s*\(\s*(\w+)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\d+)\s*;\s*(\w+\+\+|\+\+\w+)\s*\))");
-    // smatch matches;
+void processConditional(string unit, vector<Operation>* ops, vector<Variable>* vars, int index) {
+    Operation newOp;
+    string op1, op2;                                // The extracted operand text
+    size_t opPosition;
+    newOp.operands[OPR_DESTINATION] = 0;
+    newOp.isIndexVar[OPR_DESTINATION] = false;      // Dest always point to a given position
 
-    // if (regex_search(code, matches, forPattern)) {
-    //     ForLoop details;
-    //     details.iteratorName  = matches[1].str();
-    //     details.startValue    = matches[2].str();
-    //     details.limitValue    = matches[3].str();
-    //     details.step          = matches[4].str();
+    // Remove all spaces and semicolons
+    unit.erase(remove(unit.begin(), unit.end(), ' '), unit.end());
+    unit.erase(remove(unit.begin(), unit.end(), ';'), unit.end());
 
-    //     cout << "--- Loop Extraction Found ---\n";
-    //     cout << "Iterator: " << details.iteratorName << "\n";
-    //     cout << "Start:    " << details.startValue << "\n";
-    //     cout << "Limit:    " << details.limitValue << "\n";
-    //     cout << "Step:     " << details.step << "\n";
-    // } else {
-    //     cout << "No standard for-loop pattern matched." << endl;
-    // }
+    // Detect the type of branch
+    // Skip B_AL by starting at 1
+    for (int b = 1; b < B_COUNT; b++) {
+        if (hasString(unit, BranchTypeTypeToOperator((BranchType) b))) {
+            newOp.bType = (BranchType) b;
+            break;
+        }
+    }
+
+    // Extract the operand strings
+    opPosition = unit.find(BranchTypeTypeToOperator(newOp.bType));
+    op1 = unit.substr(0, opPosition);
+    op2 = unit.substr(opPosition + BranchTypeTypeToOperator(newOp.bType).length());
+
+    // Process the operands
+    extractOperandInformation(op1, OPR_OP1, &newOp, vars);
+    extractOperandInformation(op2, OPR_OP2, &newOp, vars);
+
+    // Insert the operation into the list at the given position
+    ops->insert(ops->begin() + index, newOp);
+}
+
+/**
+ * Processes a for loop and recursively processes every other instruction inside of it.
+ * 
+ * @param unit The whole for with all it's content. Content after the for should be cropped and handled by the caller 
+ * @param ops Pointer to a vector in which operations will be stored.
+ * @param vars Pointer to a vector with all the variables to process.
+ * @param index The index in which to insert the operation. The caller is responsible of incrementing it afterwards
+ */
+void processForLoop(string unit, vector<Operation>* ops, vector<Variable>* vars, int index) {
+    // For loops are decomposed into the following:
+    // for (int i = 0; i < 10; i++)
+    // 1. The iterator gets initialized (int i = 0). This happens only once
+    // 2. The condition is checked and if it does not match, branch to 6 (i < 10)
+    // 3. The code inside the for loop is run.
+    // 4. The iterator is incremented. (i++);
+    // 5. Branch to 2 always.
+    // 6. More code or, perhaps, the end of the program.
+    size_t semicolon, startBracket, endBracket;
+    int startOfFor;
+    Operation* forCondition;        // Stored to set the branch destination
+    Operation forEnd;               // A branch to the for condition at the end of the for
+    string forContent;
+
+    // Fetch the for content
+    startBracket = unit.find("{");
+    endBracket = unit.find("}");
+    if (startBracket == string::npos || endBracket == string::npos) throw runtime_error(ERROR_FOR_BRACKETS + unit);
+    forContent = unit.substr(startBracket, endBracket - startBracket - 1);
+    unit.erase(startBracket, endBracket - startBracket);
+
+    // Remove the for start, at this point we already know this is a for
+    if (unit.find("for(") != string::npos) unit.erase(0, 4);
+    else if (unit.find("for (") != string::npos) unit.erase(0, 5);
+
+    // Find the first semicolon
+    semicolon = unit.find(";");
+    if (semicolon == string::npos) throw runtime_error(ERROR_MALFORMED_FOR + unit);
+
+    // Process the iterator initialization (step 1)
+    processOperation(unit.substr(0, semicolon), ops, vars, index);
+    unit.erase(0, semicolon);
+    index++;
+    startOfFor = index;
+
+    // Find the second semicolon
+    semicolon = unit.find(";");
+    if (semicolon == string::npos) throw runtime_error(ERROR_MALFORMED_FOR + unit);
+
+    // Process the condition (step 2)
+    // TODO implement branch handling in process operation !!!! 
+    processOperation(unit.substr(0, semicolon), ops, vars, index);
+    forCondition = &ops->at(index);
+    index++;
+
+    // The code inside of the loop is processed recursively (step 3)
+    processCode(forContent, ops, vars, index);
+    index = ops->size();                    // An undefined number of elements has been added, update the index
+
+    // The iterator gets incremented (step 4)
+    semicolon = unit.find(";");
+    if (semicolon == string::npos) throw runtime_error(ERROR_MALFORMED_FOR + unit);
+    processOperation(unit.substr(0, semicolon), ops, vars, index);
+    index++;
+
+    // Add the branch to step 2 by hand (step 5)
+    forEnd.bType = B_AL;
+    forEnd.opType = OP_BRANCH;
+    forEnd.operands[OPR_DESTINATION] = startOfFor;
+    ops->insert(ops->begin() + index, forEnd);
+    index++;
+
+    // Set the for to branch to outside the for if the condition in step 2 is not met
+    forCondition->operands[OPR_DESTINATION] = index; 
 }
 
 /**
@@ -399,27 +509,25 @@ void processForLoop(string code, vector<Operation>* ops, int index) {
  * @param vars Pointer to a vector with all the variables to process.
  * @param index Index to start inserting the code instuctions.
  */
-void processCode(string* code, vector<Operation>* ops, vector<Variable>* vars, int index) {
+void processCode(string code, vector<Operation>* ops, vector<Variable>* vars, int index) {
     // Iterate over all the code lines
-    while (!code->empty()) {
+    while (!code.empty()) {
         // Extract the next piece of code to process
-        string unit = extractNextUnit(code);
+        string unit = extractNextUnit(&code);
 
-        // All memory operations that are worth simulating have an equals, if it does not have it, skip it
-        if (unit.find("=") != string::npos) {
-            if (debug) printf("Debug: Processing \t%s\n", unit.c_str());
+        // Filter irrelevant lines
+        // All memory operations that are worth simulating have an equals, comparison (in case of the for) or arithmetic operators, if it does not have it, skip it
+        if (hasString(unit, "=") || hasString(unit, ">") || hasString(unit, "<") || 
+            hasString(unit, "+") || hasString(unit, "-") || hasString(unit, "*") || hasString(unit, "/")) {
 
-            // If the statement is not a for, apply special processing to it 
-            if (unit.substr(0, 3) != "for") {
+            // If the statement is a for, apply special processing to it 
+            if (unit.substr(0, 3) == "for") {
+                processForLoop(unit, ops, vars, index);
+            } else {
                 processOperation(unit, ops, vars, index);
-                index++;
             }
 
+            index++;
         } else if (debug) printf("Debug: Skipping \t%s\n", unit.c_str());
     }
-
-
 }
-
-// void extractForLoopDetails(const string& code, const string<> vector<Variable>* variables) {
-// }

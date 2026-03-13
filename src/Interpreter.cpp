@@ -11,9 +11,10 @@
  * @param settings Pointer to the settings of the generator
  */
 void interpretCode(string code, string* trace, vector<Variable>* variables, GeneratorSettings* settings) {
-    // Clear the memory map
     unordered_map<unsigned long, unsigned long> memMap;    // Memory map to store the results of operations
     vector<Operation> opList;                              // The list of operations that will get interpreted
+    Operation lastOp;
+    lastOp.opType = OP_END;
 
     // Print the starting comment to the trace
     trace->append("# Trace generated with ");
@@ -32,5 +33,8 @@ void interpretCode(string code, string* trace, vector<Variable>* variables, Gene
     }
     
     // Process the code and extract the operations
-    processCode(&code, &opList, variables, 0);
+    processCode(code, &opList, variables, 0);
+
+    // Add the last operation
+    opList.emplace_back(lastOp);
 }

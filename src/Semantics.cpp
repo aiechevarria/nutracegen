@@ -20,6 +20,65 @@ string DataTypeToString(DataType type) {
 }
 
 /**
+ * Maps an OperationType to a string. 
+ * 
+ * @param type The OperationType.
+ * @return string The string that it relates to.
+ */
+string OperationTypeToString(OperationType type) {
+    switch (type)
+    {
+        case OP_ADD:        return "ADD";
+        case OP_SUB:        return "SUB";
+        case OP_MUL:        return "MUL";
+        case OP_DIV:        return "DIV";
+        case OP_EQUAL:      return "STORE";
+        case OP_BRANCH:     return "B";
+        case OP_END:        return "END";
+        default:            return "unknown";
+    }
+}
+
+/**
+ * Maps a BranchType to a string. 
+ * 
+ * @param type The BranchType.
+ * @return string The string that it relates to.
+ */
+string BranchTypeToString(BranchType type) {
+    switch (type)
+    {
+        case B_AL:          return "AL";
+        case B_EQ:          return "EQ";
+        case B_NE:          return "NE";
+        case B_GT:          return "GT";
+        case B_LT:          return "LT";
+        case B_GE:          return "GE";
+        case B_LE:          return "LE";
+        default:            return "unknown";
+    }
+}
+
+/**
+ * Maps a BranchType to an operator. 
+ * 
+ * @param type The BranchType.
+ * @return string The operator string that it relates to.
+ */
+string BranchTypeTypeToOperator(BranchType type) {
+    switch (type)
+    {
+        case B_EQ:          return "==";
+        case B_NE:          return "!=";
+        case B_GT:          return ">";
+        case B_LT:          return "<";
+        case B_GE:          return ">=";
+        case B_LE:          return "<=";
+        default:            return "unknown";
+    }
+}
+
+/**
  * Gets the operator string for an OperationType with a given StatementType
  * 
  * @param opType The OperationType.
