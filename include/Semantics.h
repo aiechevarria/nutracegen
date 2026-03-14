@@ -49,6 +49,14 @@ typedef enum {
     OPR_COUNT
 } OperandType;
 
+// If an operand is unused or contains a var or a scalar. Also used for indexes
+typedef enum {
+    OPRS_UNUSED,
+    OPRS_VARIABLE,
+    OPRS_SCALAR,
+    OPRS_COUNT
+} OperandState;
+
 // How can expression is written. List of supported syntaxes for assigning a value to a variable
 // The order matters, as the regular assignment is more common than the ones above and it will be detected first.
 typedef enum {
@@ -77,6 +85,7 @@ typedef struct {
 typedef struct {
     OperationType opType;
     BranchType bType;       // Only for branches
+    string comments;        // For parser or interpreter added comments on the operation
 
     // uintptr_t can contain both pointers to variables or unsigned long scalars. It can be casted in a C-like style safely
     // An instruction can have 2 (dest, op1) or 3 (dest, op1, op2) operands
@@ -86,15 +95,15 @@ typedef struct {
     uintptr_t indexes[OPR_COUNT];
 
     // The operands and indexes can be vars
-    bool isOperandVar[OPR_COUNT];
-    bool isIndexVar[OPR_COUNT];
+    OperandState oprState[OPR_COUNT];
+    OperandState indexState[OPR_COUNT];
 } Operation;
 
 // Public functions
 string DataTypeToString(DataType type);
 string OperationTypeToString(OperationType type);
 string OperandTypeToString(OperandType type);
-string BranchTypeTypeToString(BranchType type);
-string BranchTypeTypeToOperator(BranchType type);
+string BranchTypeToString(BranchType type);
+string BranchTypeToOperator(BranchType type);
 string StatementOperatorToString(OperationType opType, StatementType staType);
 Variable* getVariableByName(vector<Variable>* vars, string name);

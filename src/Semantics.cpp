@@ -65,7 +65,7 @@ string BranchTypeToString(BranchType type) {
  * @param type The BranchType.
  * @return string The operator string that it relates to.
  */
-string BranchTypeTypeToOperator(BranchType type) {
+string BranchTypeToOperator(BranchType type) {
     switch (type)
     {
         case B_EQ:          return "==";

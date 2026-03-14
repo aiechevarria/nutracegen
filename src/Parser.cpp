@@ -233,25 +233,23 @@ void extractOperandInformation(string unit, OperandType ot, Operation* op, vecto
     // Check if the operator is a scalar by checking the first character
     if (isdigit(unit[0])) {
         // Extract the operand
-        op->isOperandVar[ot] = false;
+        op->oprState[ot] = OPRS_SCALAR;
         op->operands[ot] = (uintptr_t) stoul(unit);
         
-        // If the operator is a number, it cannot be indexed with brankets
+        // If the operator is a number, it cannot be indexed with brackets
         if (startBracket != string::npos) throw runtime_error(ERROR_INDEXING_SCALAR + unit);
 
-        // Also init these so that the debug output does not look outrageous
-        op->isIndexVar[ot] = false;
-        op->indexes[ot] = (uintptr_t) 0;
+        // Also, flag that indexes cannot be used on scalars
+        op->indexState[ot] = OPRS_UNUSED;
     } else {
         // The operator is a variable
         // Save a pointer to the variable
-        op->isOperandVar[ot] = true;
+        op->oprState[ot] = OPRS_VARIABLE;
         op->operands[ot] = (uintptr_t) getVariableByName(vars, unit.substr(0, startBracket));
 
         if (startBracket == string::npos) {
-            // If it is not indexed, add a ficticious 0 index
-            op->isIndexVar[ot] = false;
-            op->indexes[ot] = (uintptr_t) 0;
+            // If it is not indexed, flag it
+            op->indexState[ot] = OPRS_UNUSED;
         } else {
             // If it is indexed
             // Fetch the string between [] and validate that it contains something
@@ -262,18 +260,18 @@ void extractOperandInformation(string unit, OperandType ot, Operation* op, vecto
             // Extract the index
             if (isdigit(index[0])) {
                 // If the first index starts with a number, then the index is a number
-                op->isIndexVar[ot] = false;
+                op->indexState[ot] = OPRS_SCALAR;
                 op->indexes[ot] = (uintptr_t) stoul(index);
             } else {
                 // If not, the index is a variable
-                op->isIndexVar[ot] = true;
+                op->indexState[ot] = OPRS_VARIABLE;
                 op->indexes[ot] = (uintptr_t) getVariableByName(vars, index);
             }
         }
     }
 
-    if (debug) printf("Debug:   Extracted %s, operand=0x%lu, isOperandVar=%d, index=0x%lu, isIndexVar=%d\n", OperandTypeToString(ot).c_str(), 
-                        (unsigned long) op->operands[ot], op->isOperandVar[ot], (unsigned long) op->indexes[ot], op->isIndexVar[ot]);
+    if (debug) printf("Debug:   Extracted %s, operand=0x%lu, operandState=%d, index=0x%lu, indexState=%d\n", OperandTypeToString(ot).c_str(), 
+                        (unsigned long) op->operands[ot], op->oprState[ot], (unsigned long) op->indexes[ot], op->indexState[ot]);
 }
 
 /**
@@ -313,15 +311,15 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
     }
 
     // Detect the type of operation
-    if ((hasString("unit", "+") && hasString("unit", "=")) || hasString(unit, "++")) {             // Additions
+    if ((hasString(unit, "+") && hasString(unit, "=")) || hasString(unit, "++")) {             // Additions
         newOp.opType = OP_ADD;
-    } else if ((hasString("unit", "-") && hasString("unit", "=")) || hasString(unit, "--")) {             // Additions
+    } else if ((hasString(unit, "-") && hasString(unit, "=")) || hasString(unit, "--")) {             // Additions
         newOp.opType = OP_SUB;
-    } else if (hasString("unit", "*") && hasString("unit", "=")) {      // Multiplications
+    } else if (hasString(unit, "*") && hasString(unit, "=")) {      // Multiplications
         newOp.opType = OP_MUL;
-    } else if (hasString("unit", "/") && hasString("unit", "=")) {      // Divisions
+    } else if (hasString(unit, "/") && hasString(unit, "=")) {      // Divisions
         newOp.opType = OP_DIV;
-    } else if (hasString("unit", "=")) {                           // Assignments
+    } else if (hasString(unit, "=")) {                           // Assignments
         newOp.opType = OP_EQUAL;
     } else if (debug) printf("Debug: Warning, unrecognized operation: %s\n", unit.c_str());
 
@@ -378,7 +376,11 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
     // Extract the information of each operand
     extractOperandInformation(dest, OPR_DESTINATION, &newOp, vars);
     extractOperandInformation(op1, OPR_OP1, &newOp, vars);
-    if (!op2.empty()) extractOperandInformation(op2, OPR_OP2, &newOp, vars);
+    if (!op2.empty()) {
+        extractOperandInformation(op2, OPR_OP2, &newOp, vars);
+    } else {
+        newOp.oprState[OPR_OP2] = OPRS_UNUSED;
+    }
 
     // Insert the operation into the list at the given position
     ops->insert(ops->begin() + index, newOp);
@@ -398,7 +400,7 @@ void processConditional(string unit, vector<Operation>* ops, vector<Variable>* v
     string op1, op2;                                // The extracted operand text
     size_t opPosition;
     newOp.operands[OPR_DESTINATION] = 0;
-    newOp.isIndexVar[OPR_DESTINATION] = false;      // Dest always point to a given position
+    newOp.indexState[OPR_DESTINATION] = OPRS_UNUSED;      // Dest always point to a given position, cannot be indexed
 
     // Remove all spaces and semicolons
     unit.erase(remove(unit.begin(), unit.end(), ' '), unit.end());
@@ -407,18 +409,19 @@ void processConditional(string unit, vector<Operation>* ops, vector<Variable>* v
     // Detect the type of branch
     // Skip B_AL by starting at 1
     for (int b = 1; b < B_COUNT; b++) {
-        if (hasString(unit, BranchTypeTypeToOperator((BranchType) b))) {
+        if (hasString(unit, BranchTypeToOperator((BranchType) b))) {
             newOp.bType = (BranchType) b;
             break;
         }
     }
 
     // Extract the operand strings
-    opPosition = unit.find(BranchTypeTypeToOperator(newOp.bType));
+    opPosition = unit.find(BranchTypeToOperator(newOp.bType));
     op1 = unit.substr(0, opPosition);
-    op2 = unit.substr(opPosition + BranchTypeTypeToOperator(newOp.bType).length());
+    op2 = unit.substr(opPosition + BranchTypeToOperator(newOp.bType).length());
 
     // Process the operands
+    newOp.oprState[OPR_DESTINATION] = OPRS_UNUSED;
     extractOperandInformation(op1, OPR_OP1, &newOp, vars);
     extractOperandInformation(op2, OPR_OP2, &newOp, vars);
 
@@ -475,7 +478,6 @@ void processForLoop(string unit, vector<Operation>* ops, vector<Variable>* vars,
     if (semicolon == string::npos) throw runtime_error(ERROR_MALFORMED_FOR + unit);
 
     // Process the condition (step 2)
-    // TODO implement branch handling in process operation !!!! 
     processOperation(unit.substr(0, semicolon), ops, vars, index);
     forCondition = &ops->at(index);
     index++;

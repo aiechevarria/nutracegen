@@ -47,5 +47,5 @@ public:
     void renderPicker(char inputPath[MAX_PATH_LENGTH], ProgramState* state);
     void renderError(const char* message, bool* toggle);
     void renderInfo(const char* message, bool* toggle);
-    void renderMainWorkspace(string code, string* trace, vector<Variable>* variables, GeneratorSettings* settings, ProgramState* state);
+    void renderMainWorkspace(string code, string* trace, vector<Operation>* ops, vector<Variable>* variables, GeneratorSettings* settings, ProgramState* state);
 };

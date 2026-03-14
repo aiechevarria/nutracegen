@@ -43,9 +43,10 @@ int main(int argc, char** argv) {
     settings.destPath = (char*) malloc(sizeof(char) * MAX_PATH_LENGTH + 1);
 
     // Pseudocode structures
-    string code;
+    string code, ogCode;
     string trace;
-    vector<Variable> variables;
+    vector<Variable> variables;             // The list of variables that will be extracted from the code
+    vector<Operation> opList;               // The list of operations that will get interpreted
 
     // Arguments
     AppArgs args = parseArguments(argc, argv);
@@ -94,6 +95,7 @@ int main(int argc, char** argv) {
                 if (!errorHappened) {
                     try {
                         code = readFileToString(inputPath);
+                        ogCode = code;
                         state = PARSE_VARIABLES;
                     } catch (const runtime_error& e) {
                         errorMessage = e.what();
@@ -127,12 +129,34 @@ int main(int argc, char** argv) {
 
             case MAIN_WORKSPACE:
                 // Render the main workspace
-                gui->renderMainWorkspace(code, &trace, &variables, &settings, &state);
+                gui->renderMainWorkspace(ogCode, &trace, &opList, &variables, &settings, &state);
                 break;
             case GENERATE_TRACE:
                 if (!errorHappened) {
                     // Try generating the trace
                     try {
+                        // Preprocess the code prior to extracting units
+                        preProcessCode(&code);
+
+                        if (debug) {
+                            printf("Debug: Pre-processed output:\n");
+                            printf("%s\n\n", code.c_str());
+                            fflush(stdout);
+                        }
+
+                        // Process the code and extract the operations
+                        opList.clear();
+                        processCode(code, &opList, &variables, 0);
+
+                        // Terminate the list of operations with a OP_END
+                        Operation lastOp;
+                        lastOp.opType = OP_END;
+                        lastOp.oprState[OPR_DESTINATION] = OPRS_UNUSED;
+                        lastOp.oprState[OPR_OP1] = OPRS_UNUSED;
+                        lastOp.oprState[OPR_OP2] = OPRS_UNUSED;
+                        opList.emplace_back(lastOp);
+
+                        // Run the interpretation
                         interpretCode(code, &trace, &variables, &settings);
                         state = MAIN_WORKSPACE;
                     } catch (const runtime_error& e) {

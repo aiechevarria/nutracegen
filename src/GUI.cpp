@@ -1,7 +1,5 @@
 #include "GUI.h"
 #include "Logo.cpp"
-#include "Misc.h"
-#include "imgui.h"
 
 ImFont* defaultFont;
 
@@ -237,7 +235,7 @@ void GUI::renderInfo(const char* message, bool* toggle) {
  * @param settings The settings of the generator.
  * @param run If the user has clicked on the run button or not
  */
-void GUI::renderMainWorkspace(string code, string* trace, vector<Variable>* variables, GeneratorSettings* settings, ProgramState* state) {
+void GUI::renderMainWorkspace(string code, string* trace, vector<Operation>* ops, vector<Variable>* variables, GeneratorSettings* settings, ProgramState* state) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms
@@ -285,7 +283,7 @@ void GUI::renderMainWorkspace(string code, string* trace, vector<Variable>* vari
             ImGui::Text("%s", DataTypeToString(var.type).c_str());
 
             ImGui::TableNextColumn();
-            ImGui::Text("0x");
+            ImGui::TextUnformatted("0x");
             ImGui::SameLine();
             ImGui::PushFont(defaultFont);               // Switch to the default monospace font
             ImGui::InputScalar(("##" + var.name).c_str(), ImGuiDataType_U64, &var.address, nullptr, nullptr, "%016llX", ImGuiInputTextFlags_CharsHexadecimal);
@@ -344,12 +342,90 @@ void GUI::renderMainWorkspace(string code, string* trace, vector<Variable>* vari
     ImVec2 rightAvail = ImGui::GetContentRegionAvail();
 
 
-    ImGui::Text("Trace Preview:");
-    ImGui::PushFont(defaultFont);               // Switch to the default monospace font
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-    ImGui::InputTextMultiline("##trace", (char*) trace->c_str(), trace->size() + 1, ImVec2(rightAvail.x, rightAvail.y - 20.0f), ImGuiInputTextFlags_ReadOnly);
-    ImGui::PopStyleVar();
-    ImGui::PopFont();
+    if (ImGui::BeginTabBar("TabbedRight")) {
+        if (ImGui::BeginTabItem("Trace Preview")) {
+            ImGui::PushFont(defaultFont);               // Switch to the default monospace font
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+            ImGui::InputTextMultiline("##trace", (char*) trace->c_str(), trace->size() + 1, ImVec2(rightAvail.x, rightAvail.y - 20.0f), ImGuiInputTextFlags_ReadOnly);
+            ImGui::PopStyleVar();
+            ImGui::PopFont();
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Operation Preview")) {
+            if (ImGui::BeginTable("OperationTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Resizable )) {
+                // Headers
+                ImGui::TableSetupColumn("PC");
+                ImGui::TableSetupColumn("Operation");
+                ImGui::TableSetupColumn("Dest.");
+                ImGui::TableSetupColumn("Opr. 1");
+                ImGui::TableSetupColumn("Opr. 2");
+                ImGui::TableSetupColumn("Comment", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+
+                int pc = 0;
+
+                // Populate rows
+                for (Operation& op : *ops) {
+                    string ref, index;
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn(); 
+
+                    // The program counter
+                    ImGui::Text("%d", pc);
+                    pc++;
+                    ImGui::TableNextColumn();
+
+                    // Name of the operation. On branches also add the branch type
+                    ImGui::Text("%s", OperationTypeToString(op.opType).c_str());
+                    if (op.opType == OP_BRANCH) ImGui::Text("%s", BranchTypeToString(op.bType).c_str());
+                    ImGui::TableNextColumn();
+
+                    // If there is a destination, add it 
+                    if (op.oprState[OPR_DESTINATION] != OPRS_UNUSED) {
+                        ref = ((Variable*) op.operands[OPR_DESTINATION])->name;
+                        // If there is an index, add it as well
+                        if (op.indexState[OPR_DESTINATION] != OPRS_UNUSED) {
+                            index = (op.indexState[OPR_DESTINATION] == OPRS_VARIABLE) ? ((Variable*) op.indexes[OPR_DESTINATION])->name : to_string(op.indexes[OPR_DESTINATION]);
+                        }
+                        (op.indexState[OPR_DESTINATION] != OPRS_UNUSED) ? ImGui::Text("%s[%s]", ref.c_str(), index.c_str()) :ImGui::Text("%s", ref.c_str());
+                    }
+                    ref.clear();
+                    index.clear();
+                    ImGui::TableNextColumn();
+
+                    if (op.oprState[OPR_OP1] != OPRS_UNUSED) {
+                        ref = (op.oprState[OPR_OP1] == OPRS_VARIABLE) ? ((Variable*) op.operands[OPR_OP1])->name : to_string(op.operands[OPR_OP1]);
+                        if (op.indexState[OPR_OP1] != OPRS_UNUSED) {
+                            index = (op.indexState[OPR_OP1] == OPRS_VARIABLE) ? ((Variable*) op.indexes[OPR_OP1])->name : to_string(op.indexes[OPR_OP1]);
+                        }
+                        (op.oprState[OPR_OP1] == OPRS_VARIABLE) ? ImGui::Text("%s[%s]", ref.c_str(), index.c_str()) : ImGui::Text("%s", ref.c_str());
+                    }
+                    ref.clear();
+                    index.clear();
+
+                    ImGui::TableNextColumn();
+
+                    if (op.oprState[OPR_OP2] != OPRS_UNUSED) {
+                        ref = (op.oprState[OPR_OP2] == OPRS_VARIABLE) ? ((Variable*) op.operands[OPR_OP2])->name : to_string(op.operands[OPR_OP2]);
+                        if (op.indexState[OPR_OP2] != OPRS_UNUSED) {
+                            index = (op.indexState[OPR_OP2] == OPRS_VARIABLE) ? ((Variable*) op.indexes[OPR_OP2])->name : to_string(op.indexes[OPR_OP2]);
+                        }
+                        (op.oprState[OPR_OP2] == OPRS_VARIABLE) ? ImGui::Text("%s[%s]", ref.c_str(), index.c_str()) :ImGui::Text("%s", ref.c_str());
+                    }
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%s", op.comments.c_str());
+                }
+
+                ImGui::EndTable();
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
 
     ImGui::EndChild();
 
