@@ -105,5 +105,7 @@ string OperationTypeToString(OperationType type);
 string OperandTypeToString(OperandType type);
 string BranchTypeToString(BranchType type);
 string BranchTypeToOperator(BranchType type);
+string BranchTypeToOpositeOperator(BranchType type);
 string StatementOperatorToString(OperationType opType, StatementType staType);
-Variable* getVariableByName(vector<Variable>* vars, string name);
+unsigned long getDataTypeSize(DataType dt);
+Variable* getVariableByName(vector<Variable>& vars, string name);

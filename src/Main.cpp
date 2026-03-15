@@ -28,6 +28,41 @@ AppArgs parseArguments(int argc, char** argv) {
     return args;
 }
 
+/**
+ * Converts the code to operations and interprets them
+ * 
+ * @param code 
+ * @param trace 
+ * @param ops 
+ * @param variables 
+ * @param settings 
+ */
+void generateTrace(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings settings) {
+    // Preprocess the code prior to extracting units
+    preProcessCode(code);
+
+    if (debug) {
+        printf("Debug: Pre-processed output:\n");
+        printf("%s\n\n", code.c_str());
+        fflush(stdout);
+    }
+
+    // Process the code and extract the operations
+    ops.clear();
+    processCode(code, ops, variables, 0);
+
+    // Terminate the list of operations with a OP_END
+    Operation lastOp;
+    lastOp.opType = OP_END;
+    lastOp.oprState[OPR_DESTINATION] = OPRS_UNUSED;
+    lastOp.oprState[OPR_OP1] = OPRS_UNUSED;
+    lastOp.oprState[OPR_OP2] = OPRS_UNUSED;
+    ops.emplace_back(lastOp);
+
+    // Run the interpretation
+    interpretCode(code, trace, ops, variables, settings);
+}
+
 int main(int argc, char** argv) {
     // File paths for the trace and config
     char inputPath[MAX_PATH_LENGTH] = "\0";
@@ -40,7 +75,9 @@ int main(int argc, char** argv) {
     // Set up settings
     settings.addComments = true;
     settings.baseAddr = 0x8000000;  // TODO Read this from the config file
-    settings.destPath = (char*) malloc(sizeof(char) * MAX_PATH_LENGTH + 1);
+    settings.wordWidth = 32;  // TODO Read this from the config file
+    settings.pageSize = 1024;  // TODO Read this from the config file
+    settings.destPath = (char*) malloc(sizeof(char) * MAX_PATH_LENGTH + 1);             // TODO replace this with a string
 
     // Pseudocode structures
     string code, ogCode;
@@ -114,7 +151,7 @@ int main(int argc, char** argv) {
                 // Parse the variables
                 if (!errorHappened) {
                     try {
-                        parseVariables(code, &variables);
+                        parseVariables(code, variables);
                         state = MAIN_WORKSPACE;
                     } catch (const runtime_error& e) {
                         errorMessage = e.what();
@@ -135,29 +172,7 @@ int main(int argc, char** argv) {
                 if (!errorHappened) {
                     // Try generating the trace
                     try {
-                        // Preprocess the code prior to extracting units
-                        preProcessCode(&code);
-
-                        if (debug) {
-                            printf("Debug: Pre-processed output:\n");
-                            printf("%s\n\n", code.c_str());
-                            fflush(stdout);
-                        }
-
-                        // Process the code and extract the operations
-                        opList.clear();
-                        processCode(code, &opList, &variables, 0);
-
-                        // Terminate the list of operations with a OP_END
-                        Operation lastOp;
-                        lastOp.opType = OP_END;
-                        lastOp.oprState[OPR_DESTINATION] = OPRS_UNUSED;
-                        lastOp.oprState[OPR_OP1] = OPRS_UNUSED;
-                        lastOp.oprState[OPR_OP2] = OPRS_UNUSED;
-                        opList.emplace_back(lastOp);
-
-                        // Run the interpretation
-                        interpretCode(code, &trace, &variables, &settings);
+                        generateTrace(code, trace, opList, variables, settings);
                         state = MAIN_WORKSPACE;
                     } catch (const runtime_error& e) {
                         errorMessage = (char*) e.what();

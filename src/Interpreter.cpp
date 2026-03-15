@@ -1,22 +1,178 @@
 #include "Interpreter.h"
-#include "Parser.h"
-#include "Semantics.h"
 
 /**
- * Parses the code and generates trace.
+ * Inits the memory map in the same way NuCachis does. Required by stores to have the actual proper value
+ * 
+ * @param memMap The memory map
+ * @param settings The settings of the simulator
+ */
+void initMemory(TraceData& td) {
+    unsigned long currentWord = td.settings.baseAddr;
+    unsigned long iter = 0;
+    unsigned int wordWidth = td.settings.wordWidth / 8;        // Word width converted to bytes 
+
+    // Fill the memory with values until the whole simulated page size is initialized
+    while (currentWord <= td.settings.baseAddr + td.settings.pageSize) {
+        (*td.memMap)[currentWord] = iter;
+
+        // Increment the iterator and move to the next word
+        currentWord += wordWidth;
+        iter++;
+    }
+}
+
+/**
+ * Reads from memory and appends to the trace.
+ * 
+ * @param td The trace data
+ * @param addr The address to read
+ * @param comment Optional comment to add to the line 
+ * @return unsigned long The value of that address
+ */
+unsigned long readMemory(TraceData& td, unsigned long addr, string comment = "") {
+    char buffer[32];
+    // Add the access to the trace, and a comment if available
+    sprintf(buffer, "L 0x%lx D", addr);
+    td.trace->append(buffer);
+    (!comment.empty() && td.settings.addComments) ? td.trace->append("# " + comment + "\n") : td.trace->append("\n");
+
+    // Lastly, return the memory address' content
+    return (*td.memMap)[addr];
+}
+
+/**
+ * Writes to memory and appends to the trace.
+ * 
+ * @param td The trace data
+ * @param addr The address to read
+ * @param comment Optional comment to add to the line 
+ */
+void writeMemory(TraceData& td, unsigned long addr, unsigned long value, string comment = "") {
+    char buffer[32];
+    // Add the access to the trace, and a comment if available
+    sprintf(buffer, "S 0x%lx D %lu", addr, value);
+    td.trace->append(buffer);
+    (!comment.empty() && td.settings.addComments) ? td.trace->append("# " + comment + "\n") : td.trace->append("\n");
+
+    // Lastly, update the memory
+    (*td.memMap)[addr] = value;
+}
+
+/**
+ * Returns the operand's indexed address. The operand should be a varaible.
+ * 
+ * @param td 
+ * @param op 
+ * @param type 
+ * @return unsigned long 
+ */
+unsigned long fetchOperandAddress(TraceData& td, Operation& op, OperandType type) {
+    unsigned long index;
+    Variable* indexVar = (Variable*) op.indexes[type];
+    Variable* oprVar = (Variable*) op.operands[type];
+
+    // Get the index depending on the indexing type and apply the datatype size
+    if (op.indexState[type] == OPRS_SCALAR) {
+        index = ((unsigned long) op.indexes[type]); 
+    } else if (op.indexState[type] == OPRS_VARIABLE) {
+        // If the variable is indexed by another variable, get the index first and then address the content of the var
+        index = readMemory(td, indexVar->address, indexVar->name);
+    } else {
+        index = 0;
+    }
+
+    // Calculate the address with the offset applied
+    return oprVar->address + index * getDataTypeSize(oprVar->type);
+}
+
+/**
+ * Fetches the content from the specified operand. 
+ * 
+ * @param memMap The map of modified memory addresses 
+ * @param op The operation
+ * @param type The operand to check
+ * @return unsigned long The content of the operand, 0 if it is not used. It is up to the caller to check if the result is valid by comparing to OPRS_UNUSED.
+ */
+unsigned long fetchOperandValue(TraceData& td, Operation& op, OperandType type) {
+    switch (op.oprState[type]) {
+        case OPRS_SCALAR:   return (unsigned long) op.operands[type];
+        case OPRS_VARIABLE: return readMemory(td, fetchOperandAddress(td, op, type));
+        default:            return 0;       // Does not matter, the caller should check if this is valid
+    }
+}
+
+/**
+ * Parses the code and generates a trace.
  * 
  * @param code The code. 
- * @param trace Pointer to the string that will store the trace
+ * @param ops Pointer to the list of operations
  * @param variables Pointer to the list of variables and their configurations
  * @param settings Pointer to the settings of the generator
  */
-void interpretCode(string code, string* trace, vector<Variable>* variables, GeneratorSettings* settings) {
-    unordered_map<unsigned long, unsigned long> memMap;    // Memory map to store the results of operations
+void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings settings) {
+    // Because stores need to have an actual value to store and the contents of memory/caches cannot be viewed at this point,
+    // we need to store all modified data in a struct.
+    unordered_map<unsigned long, unsigned long> memMap;
+    unsigned long result;
+    bool takeBranch;
+    TraceData td;
+    int pc = 0;                                             // The program counter
+    unsigned long opr1, opr2;                               // The two operands
+
+    // Group all the interpretation data and trace in a single struct
+    td.memMap = &memMap;
+    td.settings = settings;
+    td.trace = &trace;
+
+    // Init the memory
+    initMemory(td);
     
     // Print the starting comment to the trace
-    trace->append("# Trace generated with ");
-    trace->append(APP_NAME);
-    trace->append(" ");
-    trace->append(APP_VERSION);
-    trace->append("\n");
+    trace.append("# Trace generated with ");
+    trace.append(APP_NAME);
+    trace.append(" ");
+    trace.append(APP_VERSION);
+    trace.append("\n\n");
+
+    // Interpret until the end of the instructions is reached
+    while (ops[pc].opType != OP_END) {
+        // Fetch the operands' values
+        opr1 = fetchOperandValue(td, ops[pc], OPR_OP1);
+        opr2 = fetchOperandValue(td, ops[pc], OPR_OP2);
+        
+        // If the operation is of arithmetic type, calculate the result
+        if (ops[pc].opType != OP_BRANCH) {
+            switch (ops[pc].opType) {
+                case OP_ADD: result = opr1 + opr2; break;
+                case OP_SUB: result = opr1 - opr2; break;
+                case OP_MUL: result = opr1 * opr2; break;
+                case OP_DIV: result = opr1 / opr2; break;
+                case OP_EQUAL: result = opr1; break;
+                default: break;
+            }
+
+            // Store in memory the result of the operation and increment the pc
+            writeMemory(td, fetchOperandAddress(td, ops[pc], OPR_DESTINATION), result, ops[pc].comments);
+            pc++;
+        } else {
+            // If it is a branch, calculate if it should be taken or not
+            switch (ops[pc].bType) {
+                case B_AL: takeBranch = true; break;
+                case B_EQ: takeBranch = (opr1 == opr2); break;
+                case B_NE: takeBranch = (opr1 != opr2); break;
+                case B_GE: takeBranch = (opr1 >= opr2); break;
+                case B_LE: takeBranch = (opr1 <= opr2); break;
+                case B_GT: takeBranch = (opr1 > opr2); break;
+                case B_LT: takeBranch = (opr1 < opr2); break;
+                default: takeBranch = false; break;
+            }
+
+            // Update the pc
+            if (takeBranch) {
+                pc = ops[pc].operands[OPR_DESTINATION];
+            }  
+        }
+    }
+
+    trace.append("\n# Trace end\n");
 }

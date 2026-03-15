@@ -103,7 +103,7 @@ void writeStringToFile(char* filePath, string& content) {
  * @param text The text to extract the variables from
  * @param variables A vector that stores all variables in the order they have been parsed
  */
-void parseVariables(string text, vector<Variable>* variables) {
+void parseVariables(string text, vector<Variable>& variables) {
     // For a given datatype, check if the text has any occurences
     // For instance, get all the lines that have "int "
     // Once all the matches have been fetched, crop the datatype and the space until a ; [ = or space is met. That is the variable name
@@ -128,7 +128,7 @@ void parseVariables(string text, vector<Variable>* variables) {
                 if (match.size() >= 2) {
                     // Capture the name and store the variable
                     string varName = match[1];
-                    variables->push_back(Variable{0, varName, (DataType) d});
+                    variables.push_back(Variable{0, varName, (DataType) d});
 
                     if(debug) printf("Debug: Found variable with name=%s, type=%s\n", varName.c_str(), DataTypeToString(type).c_str());
                 }
@@ -136,7 +136,7 @@ void parseVariables(string text, vector<Variable>* variables) {
         }
     }
 
-    if (variables->empty()) throw runtime_error(ERROR_PARSE_NOVAR);
+    if (variables.empty()) throw runtime_error(ERROR_PARSE_NOVAR);
 }
 
 /**
@@ -144,13 +144,13 @@ void parseVariables(string text, vector<Variable>* variables) {
  * 
  * @param code Pointer to the code.
  */
-void preProcessCode(string* code) {
+void preProcessCode(string& code) {
     // Remove tabs and newlines
-    code->erase(remove(code->begin(), code->end(), '\t'), code->end());
-    code->erase(remove(code->begin(), code->end(), '\n'), code->end());
+    code.erase(remove(code.begin(), code.end(), '\t'), code.end());
+    code.erase(remove(code.begin(), code.end(), '\n'), code.end());
 
     // Collapse multiple spaces into one
-    *code = regex_replace(*code, regex("\\s+"), " ");
+    code = regex_replace(code, regex("\\s+"), " ");
 
     // Add brackets to bracketless for loops
     // Group 1: The for header: for(...)
@@ -158,7 +158,7 @@ void preProcessCode(string* code) {
     regex bracketlessFor(R"((for\s*\([^)]+\))\s*([^{;]+;))");
     
     // Replace "for(...) statement;" with "for(...) { statement; }"
-    *code = regex_replace(*code, bracketlessFor, "$1 { $2 }");
+    code = regex_replace(code, bracketlessFor, "$1 { $2 }");
 }
 
 /**
@@ -190,33 +190,33 @@ size_t findClosingBracket(string code, size_t startBracket) {
  * @param code A pointer to the code. Elements will get removed from it.
  * @return The extracted piece of code.
  */
-string extractNextUnit(string* code) {
+string extractNextUnit(string& code) {
     // Check that some code is left to process first
-    if (code->empty()) return "";
+    if (code.empty()) return "";
 
     string unit = "";
     
     // Check if it starts with for
-    if (code->substr(0, 3) == "for") {
+    if (code.substr(0, 3) == "for") {
         // Find the first bracket
-        size_t openBracketPos = code->find('{');
+        size_t openBracketPos = code.find('{');
         // If there are no brackets, print an error and return nothing. This case should have been handled by the preprocessor.
         if (openBracketPos == string::npos) {
             printf(ERROR_PARSE_FOR);
             return "";
         }
 
-        size_t endPos = findClosingBracket(*code, openBracketPos);
+        size_t endPos = findClosingBracket(code, openBracketPos);
 
         // Extract everything from the start of for to the closing bracket
-        unit = code->substr(0, endPos + 1);
-        code->erase(0, endPos + 1);
+        unit = code.substr(0, endPos + 1);
+        code.erase(0, endPos + 1);
     } else {
         // Standard statement: extract up to the first semicolon
-        size_t semicolonPos = code->find(';');
+        size_t semicolonPos = code.find(';');
         if (semicolonPos != string::npos) {
-            unit = code->substr(0, semicolonPos + 1);
-            code->erase(0, semicolonPos + 1);
+            unit = code.substr(0, semicolonPos + 1);
+            code.erase(0, semicolonPos + 1);
         }
     }
 
@@ -231,7 +231,7 @@ string extractNextUnit(string* code) {
  * @param op Pointer to the operation that contains this operand
  * @param vars The list of variables to search for variable pointers
  */
-void extractOperandInformation(string unit, OperandType ot, Operation* op, vector<Variable>* vars) {
+void extractOperandInformation(string unit, OperandType ot, Operation& op, vector<Variable>& vars) {
     size_t startBracket = unit.find("[");
     size_t endBracket = unit.find("]");
     
@@ -241,24 +241,24 @@ void extractOperandInformation(string unit, OperandType ot, Operation* op, vecto
     // Check if the operator is a scalar by checking the first character
     if (isdigit(unit[0])) {
         // Extract the operand
-        op->oprState[ot] = OPRS_SCALAR;
-        op->operands[ot] = (uintptr_t) stoul(unit);
+        op.oprState[ot] = OPRS_SCALAR;
+        op.operands[ot] = (uintptr_t) stoul(unit);
         
         // If the operator is a number, it cannot be indexed with brackets
         if (startBracket != string::npos) throw runtime_error(ERROR_INDEXING_SCALAR + unit);
 
         // Also, flag that indexes cannot be used on scalars
-        op->indexState[ot] = OPRS_UNUSED;
+        op.indexState[ot] = OPRS_UNUSED;
     } else {
         // The operator is a variable
         // Save a pointer to the variable
-        op->oprState[ot] = OPRS_VARIABLE;
-        op->operands[ot] = (uintptr_t) getVariableByName(vars, unit.substr(0, startBracket));
-        if ((op->operands[ot]) == (uintptr_t) nullptr) throw runtime_error(ERROR_UNIDENTIFIED_VAR + unit);
+        op.oprState[ot] = OPRS_VARIABLE;
+        op.operands[ot] = (uintptr_t) getVariableByName(vars, unit.substr(0, startBracket));
+        if ((op.operands[ot]) == (uintptr_t) nullptr) throw runtime_error(ERROR_UNIDENTIFIED_VAR + unit);
 
         if (startBracket == string::npos) {
             // If it is not indexed, flag it
-            op->indexState[ot] = OPRS_UNUSED;
+            op.indexState[ot] = OPRS_UNUSED;
         } else {
             // If it is indexed
             // Fetch the string between [] and validate that it contains something
@@ -269,18 +269,18 @@ void extractOperandInformation(string unit, OperandType ot, Operation* op, vecto
             // Extract the index
             if (isdigit(index[0])) {
                 // If the first index starts with a number, then the index is a number
-                op->indexState[ot] = OPRS_SCALAR;
-                op->indexes[ot] = (uintptr_t) stoul(index);
+                op.indexState[ot] = OPRS_SCALAR;
+                op.indexes[ot] = (uintptr_t) stoul(index);
             } else {
                 // If not, the index is a variable
-                op->indexState[ot] = OPRS_VARIABLE;
-                op->indexes[ot] = (uintptr_t) getVariableByName(vars, index);
+                op.indexState[ot] = OPRS_VARIABLE;
+                op.indexes[ot] = (uintptr_t) getVariableByName(vars, index);
             }
         }
     }
 
     if (debug) printf("Debug:   Extracted %s, operand=0x%lu, operandState=%d, index=0x%lu, indexState=%d\n", OperandTypeToString(ot).c_str(), 
-                        (unsigned long) op->operands[ot], op->oprState[ot], (unsigned long) op->indexes[ot], op->indexState[ot]);
+                        (unsigned long) op.operands[ot], op.oprState[ot], (unsigned long) op.indexes[ot], op.indexState[ot]);
 }
 
 /**
@@ -291,7 +291,7 @@ void extractOperandInformation(string unit, OperandType ot, Operation* op, vecto
  * @param vars Pointer to a vector with all the variables to process.
  * @param index The index in which to insert the operation. The caller is responsible of incrementing it afterwards
  */
-void processOperation(string unit, vector<Operation>* ops, vector<Variable>* vars, int index) {
+void processOperation(string unit, vector<Operation>& ops, vector<Variable>& vars, int index) {
     Operation newOp;
     string dest, op1, op2;     // The extracted operand text
     size_t pos = string::npos; // The position that caused a match
@@ -383,10 +383,10 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
     }
 
     // Extract the information of each operand
-    extractOperandInformation(dest, OPR_DESTINATION, &newOp, vars);
-    extractOperandInformation(op1, OPR_OP1, &newOp, vars);
+    extractOperandInformation(dest, OPR_DESTINATION, newOp, vars);
+    extractOperandInformation(op1, OPR_OP1, newOp, vars);
     if (!op2.empty()) {
-        extractOperandInformation(op2, OPR_OP2, &newOp, vars);
+        extractOperandInformation(op2, OPR_OP2, newOp, vars);
     } else {
         newOp.oprState[OPR_OP2] = OPRS_UNUSED;
     }
@@ -395,7 +395,7 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
     newOp.comments = unit;
 
     // Insert the operation into the list at the given position
-    ops->insert(ops->begin() + index, newOp);
+    ops.insert(ops.begin() + index, newOp);
 }
 
 /**
@@ -407,7 +407,7 @@ void processOperation(string unit, vector<Operation>* ops, vector<Variable>* var
  * @param vars 
  * @param index 
  */
-void processConditional(string unit, vector<Operation>* ops, vector<Variable>* vars, int index) {
+void processConditional(string unit, vector<Operation>& ops, vector<Variable>& vars, int index) {
     Operation newOp;
     string op1, op2;                                    // The extracted operand text
     size_t opPosition;
@@ -422,27 +422,29 @@ void processConditional(string unit, vector<Operation>* ops, vector<Variable>* v
     // Detect the type of branch
     // Skip B_AL by starting at 1
     for (int b = 1; b < B_COUNT; b++) {
-        if (hasString(unit, BranchTypeToOperator((BranchType) b))) {
+        if (hasString(unit, BranchTypeToOpositeOperator((BranchType) b))) {
             newOp.bType = (BranchType) b;
             break;
         }
     }
 
+    if (debug) printf("Debug: Processing %s, %s\n", OperationTypeToString(newOp.opType).c_str(), unit.c_str());
+
     // Extract the operand strings
-    opPosition = unit.find(BranchTypeToOperator(newOp.bType));
+    opPosition = unit.find(BranchTypeToOpositeOperator(newOp.bType));
     op1 = unit.substr(0, opPosition);
-    op2 = unit.substr(opPosition + BranchTypeToOperator(newOp.bType).length());
+    op2 = unit.substr(opPosition + BranchTypeToOpositeOperator(newOp.bType).length());
 
     // Process the operands
     newOp.oprState[OPR_DESTINATION] = OPRS_SCALAR;
-    extractOperandInformation(op1, OPR_OP1, &newOp, vars);
-    extractOperandInformation(op2, OPR_OP2, &newOp, vars);
+    extractOperandInformation(op1, OPR_OP1, newOp, vars);
+    extractOperandInformation(op2, OPR_OP2, newOp, vars);
 
     // Add the comment
     newOp.comments = unit + " (For start)";
 
     // Insert the operation into the list at the given position
-    ops->insert(ops->begin() + index, newOp);
+    ops.insert(ops.begin() + index, newOp);
 }
 
 /**
@@ -453,7 +455,7 @@ void processConditional(string unit, vector<Operation>* ops, vector<Variable>* v
  * @param vars Pointer to a vector with all the variables to process.
  * @param index The index in which to insert the operation. The caller is responsible of incrementing it afterwards
  */
-void processForLoop(string unit, vector<Operation>* ops, vector<Variable>* vars, int index) {
+void processForLoop(string unit, vector<Operation>& ops, vector<Variable>& vars, int index) {
     // For loops are decomposed into the following:
     // for (int i = 0; i < 10; i++)
     // 1. The iterator gets initialized (int i = 0). This happens only once
@@ -500,7 +502,7 @@ void processForLoop(string unit, vector<Operation>* ops, vector<Variable>* vars,
 
     // The code inside of the loop is processed recursively (step 3)
     processCode(forContent, ops, vars, index);
-    index = ops->size();                    // An undefined number of elements has been added, update the index
+    index = ops.size();                    // An undefined number of elements has been added, update the index
 
     // The iterator gets incremented (step 4)
     terminator = unit.find(")");
@@ -517,11 +519,11 @@ void processForLoop(string unit, vector<Operation>* ops, vector<Variable>* vars,
     forEnd.oprState[OPR_OP2] = OPRS_UNUSED;
     forEnd.indexState[OPR_DESTINATION] = OPRS_UNUSED;
     forEnd.comments = "For end";
-    ops->insert(ops->begin() + index, forEnd);
+    ops.insert(ops.begin() + index, forEnd);
     index++;
 
     // Set the for to branch to outside the for if the condition in step 2 is not met
-    (*ops)[forCondition].operands[OPR_DESTINATION] = (uintptr_t) index; 
+    ops[forCondition].operands[OPR_DESTINATION] = (uintptr_t) index; 
 }
 
 /**
@@ -532,11 +534,11 @@ void processForLoop(string unit, vector<Operation>* ops, vector<Variable>* vars,
  * @param vars Pointer to a vector with all the variables to process.
  * @param index Index to start inserting the code instuctions.
  */
-void processCode(string code, vector<Operation>* ops, vector<Variable>* vars, int index) {
+void processCode(string code, vector<Operation>& ops, vector<Variable>& vars, int index) {
     // Iterate over all the code lines
     while (!code.empty()) {
         // Extract the next piece of code to process
-        string unit = extractNextUnit(&code);
+        string unit = extractNextUnit(code);
 
         // Filter irrelevant lines
         // All memory operations that are worth simulating have an equals, comparison (in case of the for) or arithmetic operators, if it does not have it, skip it

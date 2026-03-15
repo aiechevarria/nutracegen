@@ -8,6 +8,6 @@
 bool hasString(string unit, string content);
 string readFileToString(char inputPath[MAX_PATH_LENGTH]);
 void writeStringToFile(char* filePath, string& content);
-void parseVariables(string text, vector<Variable>* variables);
-void preProcessCode(string* code);
-void processCode(string code, vector<Operation>* ops, vector<Variable>* vars, int index);
+void parseVariables(string text, vector<Variable>& variables);
+void preProcessCode(string& code);
+void processCode(string code, vector<Operation>& ops, vector<Variable>& vars, int index);

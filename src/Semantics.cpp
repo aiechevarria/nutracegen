@@ -79,6 +79,25 @@ string BranchTypeToOperator(BranchType type) {
 }
 
 /**
+ * Maps a BranchType to the oposite operator. 
+ * 
+ * @param type The BranchType.
+ * @return string The oposite operator string that it relates to.
+ */
+string BranchTypeToOpositeOperator(BranchType type) {
+    switch (type)
+    {
+        case B_EQ:          return "!=";
+        case B_NE:          return "==";
+        case B_GT:          return "<=";
+        case B_LT:          return ">=";
+        case B_GE:          return "<";
+        case B_LE:          return ">";
+        default:            return "unknown";
+    }
+}
+
+/**
  * Gets the operator string for an OperationType with a given StatementType
  * 
  * @param opType The OperationType.
@@ -123,14 +142,37 @@ string OperandTypeToString(OperandType type) {
 }
 
 /**
+ * Gets the size of a datatype in bytes
+ * 
+ * @param dt The datatype
+ * @return unsigned long 
+ */
+unsigned long getDataTypeSize(DataType dt) {
+    switch (dt) {
+        case TYPE_CHAR: 
+            return 1;
+        case TYPE_SHORT:
+            return 2;
+        case TYPE_INT:
+        case TYPE_FLOAT:
+            return 4;
+        case TYPE_LONG:
+        case TYPE_DOUBLE:
+            return 8;
+        default:
+            return 0;
+    }
+}
+
+/**
  * Find a variable based on it's name.
  * 
  * @param vars The list of variables that have been identified.
  * @param name The name of the variable to find.
  * @return Variable* Pointer to the variable if found, nullptr if error.
  */
-Variable* getVariableByName(vector<Variable>* vars, string name) {
-    for (auto& v : *vars) {
+Variable* getVariableByName(vector<Variable>& vars, string name) {
+    for (auto& v : vars) {
         if(name == v.name) return &v;
     }
 
