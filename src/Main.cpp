@@ -38,6 +38,9 @@ AppArgs parseArguments(int argc, char** argv) {
  * @param settings 
  */
 void generateTrace(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings settings) {
+    // Clear previous trace instances
+    trace.clear();
+
     // Preprocess the code prior to extracting units
     preProcessCode(code);
 

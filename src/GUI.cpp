@@ -346,7 +346,7 @@ void GUI::renderMainWorkspace(string code, string* trace, vector<Operation>* ops
         if (ImGui::BeginTabItem("Trace Preview")) {
             ImGui::PushFont(defaultFont);               // Switch to the default monospace font
             ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-            ImGui::InputTextMultiline("##trace", (char*) trace->c_str(), trace->size() + 1, ImVec2(rightAvail.x, rightAvail.y - 20.0f), ImGuiInputTextFlags_ReadOnly);
+            ImGui::InputTextMultiline("##trace", (char*) trace->c_str(), trace->size() + 1, ImVec2(rightAvail.x, rightAvail.y - 30.0f), ImGuiInputTextFlags_ReadOnly);
             ImGui::PopStyleVar();
             ImGui::PopFont();
             ImGui::EndTabItem();

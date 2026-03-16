@@ -34,7 +34,7 @@ unsigned long readMemory(TraceData& td, unsigned long addr, string comment = "")
     // Add the access to the trace, and a comment if available
     sprintf(buffer, "L 0x%lx D", addr);
     td.trace->append(buffer);
-    (!comment.empty() && td.settings.addComments) ? td.trace->append("# " + comment + "\n") : td.trace->append("\n");
+    (!comment.empty() && td.settings.addComments) ? td.trace->append("\t\t # " + comment + "\n") : td.trace->append("\n");
 
     // Lastly, return the memory address' content
     return (*td.memMap)[addr];
@@ -52,7 +52,7 @@ void writeMemory(TraceData& td, unsigned long addr, unsigned long value, string 
     // Add the access to the trace, and a comment if available
     sprintf(buffer, "S 0x%lx D %lu", addr, value);
     td.trace->append(buffer);
-    (!comment.empty() && td.settings.addComments) ? td.trace->append("# " + comment + "\n") : td.trace->append("\n");
+    (!comment.empty() && td.settings.addComments) ? td.trace->append("\t # " + comment + "\n") : td.trace->append("\n");
 
     // Lastly, update the memory
     (*td.memMap)[addr] = value;
@@ -96,7 +96,7 @@ unsigned long fetchOperandAddress(TraceData& td, Operation& op, OperandType type
 unsigned long fetchOperandValue(TraceData& td, Operation& op, OperandType type) {
     switch (op.oprState[type]) {
         case OPRS_SCALAR:   return (unsigned long) op.operands[type];
-        case OPRS_VARIABLE: return readMemory(td, fetchOperandAddress(td, op, type));
+        case OPRS_VARIABLE: return readMemory(td, fetchOperandAddress(td, op, type), ((Variable*) op.operands[type])->name);
         default:            return 0;       // Does not matter, the caller should check if this is valid
     }
 }
@@ -136,6 +136,7 @@ void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Va
 
     // Interpret until the end of the instructions is reached
     while (ops[pc].opType != OP_END) {
+        if (settings.addComments) trace.append("# " + ops[pc].comments + "\n");
         // Fetch the operands' values
         opr1 = fetchOperandValue(td, ops[pc], OPR_OP1);
         opr2 = fetchOperandValue(td, ops[pc], OPR_OP2);
@@ -153,6 +154,8 @@ void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Va
 
             // Store in memory the result of the operation and increment the pc
             writeMemory(td, fetchOperandAddress(td, ops[pc], OPR_DESTINATION), result, ops[pc].comments);
+            trace.append("\n");
+
             pc++;
         } else {
             // If it is a branch, calculate if it should be taken or not
@@ -167,10 +170,12 @@ void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Va
                 default: takeBranch = false; break;
             }
 
-            // Update the pc
+            // Update the PC
             if (takeBranch) {
                 pc = ops[pc].operands[OPR_DESTINATION];
-            }  
+            } else {
+                pc++;
+            }
         }
     }
 
