@@ -9,6 +9,7 @@
 #include "Semantics.h"
 #include "Interpreter.h"
 
+// Arguments
 typedef struct {
     string inputPath, configPath, savePath;
     vector<string> variableAddresses, variableAccessFrequency;

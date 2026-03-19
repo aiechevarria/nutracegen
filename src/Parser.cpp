@@ -13,10 +13,10 @@ bool hasString(string unit, string content) {
 }
 
 /**
- * Get all the lines that match a given regex
+ * Get all the lines that match a given regex.
  * 
- * @param text 
- * @param pattern 
+ * @param text The text to parse
+ * @param pattern The pattern to match
  * @return vector<string> 
  */
 vector<string> getMatchingLines(const string& text, const string& pattern) {
@@ -175,7 +175,7 @@ void parseVariables(string text, vector<Variable>& variables) {
     // Iterate over each datatype 
     for (int d = TYPE_CHAR; d < TYPE_COUNT; d++) {
         DataType type = static_cast<DataType>(d);
-        string typeStr = DataTypeToString(type);
+        string typeStr = dataTypeToString(type);
 
         // Match for datatype + space + variable name (until space, ;, =, or [)
         string pattern = typeStr + R"(\s+([a-zA-Z_]\w*))";
@@ -194,13 +194,58 @@ void parseVariables(string text, vector<Variable>& variables) {
                     string varName = match[1];
                     variables.push_back(Variable{varName, 0, (DataType) d, VAR_ACCESS_ALWAYS});
 
-                    if(debug) printf("Debug: Found variable with name=%s, type=%s\n", varName.c_str(), DataTypeToString(type).c_str());
+                    if(debug) printf("Debug: Found variable with name=%s, type=%s\n", varName.c_str(), dataTypeToString(type).c_str());
                 }
             }
         }
     }
 
     if (variables.empty()) throw runtime_error(ERROR_PARSE_NOVAR);
+}
+
+/**
+ * Parses the configuration file and populates the memory base address and page size variables settings.
+ *
+ * @param text The text to extract the variables from
+ * @param settings The simulator settings
+ * @throws runtime_error If the configuration file is missing some directives.
+ */
+void parseConfigFile(string text, InterpreterSettings& settings) {
+    // Fetch the page base address, page size and the word width
+    vector<string> vpba = getMatchingLines(text, "page_base_address");
+    vector<string> vps = getMatchingLines(text, "page_size");
+    vector<string> vww = getMatchingLines(text, "word_width");
+    uint64_t psMultiplier;
+    
+    // Validate that they have been found
+    if (vpba.empty() || vps.empty() || vww.empty()) throw runtime_error(ERROR_CONFIG_DIRECTIVES);
+
+    // Extract them to a single string from the vector
+    string pba = vpba[0];
+    string ps = vps[0];
+    string ww = vww[0];
+
+    // Remove the whitespaces
+    pba.erase(remove_if(pba.begin(), pba.end(), ::isspace), pba.end());
+    ps.erase(remove_if(ps.begin(), ps.end(), ::isspace), ps.end());
+    ww.erase(remove_if(ww.begin(), ww.end(), ::isspace), ww.end());
+
+    // Find the multiplier for the page size
+    if (ps.find("k") != string::npos || ps.find("K") != string::npos)       psMultiplier = 1024;
+    else if (ps.find("m") != string::npos || ps.find("M") != string::npos)  psMultiplier = 1024 * 1024;
+    else if (ps.find("g") != string::npos || ps.find("G") != string::npos)  psMultiplier = 1024 * 1024 * 1024;
+    else psMultiplier = 1;
+
+    // Fetch the values
+    settings.baseAddr = stoul(pba.substr(pba.find("=") + 1), nullptr, 0);
+    settings.wordWidth = stoul(ww.substr(ww.find("=") + 1));
+    if (psMultiplier == 1) {
+        settings.pageSize = stoul(ps.substr(ps.find("=") + 1));
+    } else {
+        // If it has a multiplier, remove the last char
+        ps.pop_back();
+        settings.pageSize = stoul(ps.substr(ps.find("=") + 1)) * psMultiplier;
+    }
 }
 
 /**
@@ -343,7 +388,7 @@ void extractOperandInformation(string unit, OperandType ot, Operation& op, vecto
         }
     }
 
-    if (debug) printf("Debug:   Extracted %s, operand=0x%lu, operandState=%d, index=0x%lu, indexState=%d\n", OperandTypeToString(ot).c_str(), 
+    if (debug) printf("Debug:   Extracted %s, operand=0x%lu, operandState=%d, index=0x%lu, indexState=%d\n", operandTypeToString(ot).c_str(), 
                         (uint64_t) op.operands[ot], op.oprState[ot], (uint64_t) op.indexes[ot], op.indexState[ot]);
 }
 
@@ -362,7 +407,7 @@ void processOperation(string unit, vector<Operation>& ops, vector<Variable>& var
 
     // If it starts with a datatype string, remove it
     for (int d = TYPE_CHAR; d < TYPE_COUNT; d++) {
-        string pattern = DataTypeToString((DataType) d) + " "; 
+        string pattern = dataTypeToString((DataType) d) + " "; 
         if (unit.rfind(pattern, 0) == 0) {
             unit.erase(0, pattern.length());
             break;
@@ -375,7 +420,7 @@ void processOperation(string unit, vector<Operation>& ops, vector<Variable>& var
 
     // If a datatype precedes the variable name, remove it
     for (int i = 0; i < TYPE_COUNT; i++) {
-        string type = DataTypeToString((DataType) i);
+        string type = dataTypeToString((DataType) i);
         regex pattern("^" + type + " ");
 
         if (regex_search(unit, pattern)) {
@@ -396,7 +441,7 @@ void processOperation(string unit, vector<Operation>& ops, vector<Variable>& var
         newOp.opType = OP_EQUAL;
     } else if (debug) printf("Debug: Warning, unrecognized operation: %s\n", unit.c_str());
 
-    if (debug) printf("Debug: Processing %s, %s\n", OperationTypeToString(newOp.opType).c_str(), unit.c_str());
+    if (debug) printf("Debug: Processing %s, %s\n", operationTypeToString(newOp.opType).c_str(), unit.c_str());
 
     // Extract the operands
     // Operations can have 3 different statement types:
@@ -408,7 +453,7 @@ void processOperation(string unit, vector<Operation>& ops, vector<Variable>& var
     // Iterate and try all the statements until one is found. 
     // This for loop works great if these are all the statements that we want to parse, but might be a bit limiting in the future
     for (int s = 0; s < STATEMENT_COUNT; s++) {
-        pos = unit.find(StatementOperatorToString(newOp.opType, (StatementType) s));
+        pos = unit.find(statementOperatorToString(newOp.opType, (StatementType) s));
 
         if (pos != string::npos) {
             if (s == STATEMENT_COMPOUND_ASSIGNMENT) {
@@ -416,7 +461,7 @@ void processOperation(string unit, vector<Operation>& ops, vector<Variable>& var
                 // and we can extract the operands easily 
                 dest = unit.substr(0, pos);     // The dest is at the right of the operator.
                 op1 = unit.substr(0, pos);      // Since this is compound, one of the operands is the destination.
-                op2 = unit.substr(pos + StatementOperatorToString(newOp.opType, STATEMENT_COMPOUND_ASSIGNMENT).length());
+                op2 = unit.substr(pos + statementOperatorToString(newOp.opType, STATEMENT_COMPOUND_ASSIGNMENT).length());
             } else if (s == STATEMENT_ASSIGMENT_AFTER_OPERATION) {
                 // Case 2. There are two separate operands that have to be processed
                 // Get the position of the equals
@@ -424,11 +469,11 @@ void processOperation(string unit, vector<Operation>& ops, vector<Variable>& var
 
                 dest = unit.substr(0, equalsPos);
                 op1 = unit.substr(equalsPos + 1, equalsPos - pos - 1);
-                op2 = unit.substr(pos + StatementOperatorToString(newOp.opType, STATEMENT_ASSIGMENT_AFTER_OPERATION).length());
+                op2 = unit.substr(pos + statementOperatorToString(newOp.opType, STATEMENT_ASSIGMENT_AFTER_OPERATION).length());
             } else if (s == STATEMENT_ASSIGNMENT) {
                 // Case 3. There is just a destination and an operator
                 dest = unit.substr(0, pos);
-                op1 = unit.substr(pos + StatementOperatorToString(newOp.opType, STATEMENT_ASSIGNMENT).length());
+                op1 = unit.substr(pos + statementOperatorToString(newOp.opType, STATEMENT_ASSIGNMENT).length());
             }
 
             // Regardless of the statement, a match has been made, stop looking
@@ -486,18 +531,18 @@ void processConditional(string unit, vector<Operation>& ops, vector<Variable>& v
     // Detect the type of branch
     // Skip B_AL by starting at 1
     for (int b = 1; b < B_COUNT; b++) {
-        if (hasString(unit, BranchTypeToOpositeOperator((BranchType) b))) {
+        if (hasString(unit, branchTypeToOpositeOperator((BranchType) b))) {
             newOp.bType = (BranchType) b;
             break;
         }
     }
 
-    if (debug) printf("Debug: Processing %s, %s\n", OperationTypeToString(newOp.opType).c_str(), unit.c_str());
+    if (debug) printf("Debug: Processing %s, %s\n", operationTypeToString(newOp.opType).c_str(), unit.c_str());
 
     // Extract the operand strings
-    opPosition = unit.find(BranchTypeToOpositeOperator(newOp.bType));
+    opPosition = unit.find(branchTypeToOpositeOperator(newOp.bType));
     op1 = unit.substr(0, opPosition);
-    op2 = unit.substr(opPosition + BranchTypeToOpositeOperator(newOp.bType).length());
+    op2 = unit.substr(opPosition + branchTypeToOpositeOperator(newOp.bType).length());
 
     // Process the operands
     newOp.oprState[OPR_DESTINATION] = OPRS_SCALAR;

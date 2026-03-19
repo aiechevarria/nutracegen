@@ -6,7 +6,7 @@
  * @param type The DataType.
  * @return string The string that it relates to.
  */
-string DataTypeToString(DataType type) {
+string dataTypeToString(DataType type) {
     switch (type)
     {
         case TYPE_CHAR:   return "char";
@@ -25,7 +25,7 @@ string DataTypeToString(DataType type) {
  * @param type The OperationType.
  * @return string The string that it relates to.
  */
-string OperationTypeToString(OperationType type) {
+string operationTypeToString(OperationType type) {
     switch (type)
     {
         case OP_ADD:        return "ADD";
@@ -45,7 +45,7 @@ string OperationTypeToString(OperationType type) {
  * @param type The BranchType.
  * @return string The string that it relates to.
  */
-string BranchTypeToString(BranchType type) {
+string branchTypeToString(BranchType type) {
     switch (type)
     {
         case B_AL:          return "AL";
@@ -65,7 +65,7 @@ string BranchTypeToString(BranchType type) {
  * @param type The BranchType.
  * @return string The operator string that it relates to.
  */
-string BranchTypeToOperator(BranchType type) {
+string branchTypeToOperator(BranchType type) {
     switch (type)
     {
         case B_EQ:          return "==";
@@ -84,7 +84,7 @@ string BranchTypeToOperator(BranchType type) {
  * @param type The BranchType.
  * @return string The oposite operator string that it relates to.
  */
-string BranchTypeToOpositeOperator(BranchType type) {
+string branchTypeToOpositeOperator(BranchType type) {
     switch (type)
     {
         case B_EQ:          return "!=";
@@ -104,7 +104,7 @@ string BranchTypeToOpositeOperator(BranchType type) {
  * @param staType The StatementType.
  * @return string The string that it relates to.
  */
-string StatementOperatorToString(OperationType opType, StatementType staType) {
+string statementOperatorToString(OperationType opType, StatementType staType) {
     if (staType == STATEMENT_ASSIGNMENT) return "=";
 
     switch (opType)
@@ -131,7 +131,7 @@ string StatementOperatorToString(OperationType opType, StatementType staType) {
  * @param type The Operand
  * @return string The string that it relates to.
  */
-string OperandTypeToString(OperandType type) {
+string operandTypeToString(OperandType type) {
     switch (type)
     {
         case OPR_DESTINATION:   return "Dest";
@@ -142,7 +142,7 @@ string OperandTypeToString(OperandType type) {
 }
 
 /**
- * Gets the size of a datatype in bytes
+ * Gets the size of a datatype in bytes.
  * 
  * @param dt The datatype
  * @return uint64_t 
@@ -153,7 +153,8 @@ uint64_t getDataTypeSize(DataType dt) {
         case TYPE_SHORT:
         case TYPE_LONG:
         case TYPE_DOUBLE:
-            printf("Warning: Datatypes that are not 4 bytes in size are not currently supported by NuCachis. %s will be treated as 4 bytes in size.\n", DataTypeToString(dt).c_str());
+            // TODO when implementing larger datatypes, make sure to check address alignment !!!
+            printf("Warning: Datatypes that are not 4 bytes in size are not currently supported by NuCachis. %s will be treated as 4 bytes in size.\n", dataTypeToString(dt).c_str());
         case TYPE_INT:
         case TYPE_FLOAT:
             return 4;

@@ -45,7 +45,7 @@ public:
     GUI();
     ~GUI();
     SDL_Window* getWindow();
-    void renderPicker(GeneratorSettings& settings, ProgramState& state);
-    void renderMessage(string message, bool isError = true);
-    void renderMainWorkspace(string& code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings& settings, ProgramState& state);
+    void renderPicker(InterpreterSettings& settings, ProgramState& state);
+    void renderMessage(string& message, bool isError = true);
+    void renderMainWorkspace(string& code, string& trace, vector<Operation>& ops, vector<Variable>& variables, InterpreterSettings& settings, ProgramState& state);
 };

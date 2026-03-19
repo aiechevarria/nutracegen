@@ -22,16 +22,37 @@ void initMemory(TraceData& td) {
 }
 
 /**
+ * Checks if the variable access is aligned or not. 
+ * 
+ * @param var The variable to access 
+ * @param offset The offset to apply to the variable's base addess
+ * @return true if it is aligned, false if not
+ */
+bool isAligned(Variable var, uint64_t offset) {
+    // Get the width of the datatype
+    uint64_t width = getDataTypeSize(var.type);
+
+    // Check alignment
+    if ((var.address + offset) % width == 0) return true;
+    else return false;
+}
+
+/**
  * Reads from memory and appends to the trace.
  * 
  * @param td The trace data
  * @param address The address to read
  * @param offset The offset that should be applied to the variable's base address
  * @return uint64_t The value of that address
+ * @throws runtime_error If the access is not aligned or out of bounds
  */
 uint64_t readMemory(TraceData& td, Variable& var, uint64_t offset) {
     char buffer[32];
     uint64_t addr = var.address + offset;
+
+    // Validate that the access is aligned and within bounds
+    if (!isAligned(var, offset)) throw runtime_error(ERROR_UNALIGNED_VAR + var.name + " (address=0d" + to_string(var.address) + ") accessed with offset=0d" + to_string(offset).c_str() + "\n");
+    if (addr > td.settings.baseAddr + td.settings.pageSize || addr < td.settings.baseAddr) throw runtime_error(ERROR_OOB_ACCESS + var.name +  " (address=0d" + to_string(var.address) + ") accessed with offset=0d" + to_string(offset).c_str() + "\n");
 
     // If the access should be noted, add the access to the trace, and a comment if available
     if (var.freq == VAR_ACCESS_ALWAYS || (var.freq == VAR_ACCESS_ONCE && !var.hasBeenAccessed)) {
@@ -53,10 +74,15 @@ uint64_t readMemory(TraceData& td, Variable& var, uint64_t offset) {
  * @param value The value to store
  * @param log If the access should be noted in the trace 
  * @param comment Optional comment to add to the line 
+ * @throws runtime_error If the access is not aligned or out of bounds
  */
 void writeMemory(TraceData& td, Variable& var, uint64_t offset, uint64_t value) {
     char buffer[32];
     uint64_t addr = var.address + offset;
+
+    // Validate that the access is aligned and within bounds
+    if (!isAligned(var, offset)) throw runtime_error(ERROR_UNALIGNED_VAR + var.name + " (address=0d" + to_string(var.address) + ") accessed with offset=0d" + to_string(offset).c_str() + "\n");
+    if (addr > td.settings.baseAddr + td.settings.pageSize || addr < td.settings.baseAddr) throw runtime_error(ERROR_OOB_ACCESS + var.name +  " (address=0d" + to_string(var.address) + ") accessed with offset=0d" + to_string(offset).c_str() + "\n");
 
     // If the access should be noted, add the access to the trace, and a comment if available
     if (var.freq == VAR_ACCESS_ALWAYS || (var.freq == VAR_ACCESS_ONCE && !var.hasBeenAccessed)) {
@@ -73,10 +99,10 @@ void writeMemory(TraceData& td, Variable& var, uint64_t offset, uint64_t value) 
 /**
  * Returns the operand's indexed address. The operand should be a varaible.
  * 
- * @param td 
- * @param op 
- * @param type 
- * @return uint64_t 
+ * @param td The trace data
+ * @param op The operation that contains the operand
+ * @param type The type of operand that should be checked
+ * @return uint64_t The offset of the operand
  */
 uint64_t fetchOperandOffset(TraceData& td, Operation& op, OperandType type) {
     uint64_t index;
@@ -123,7 +149,7 @@ uint64_t fetchOperandValue(TraceData& td, Operation& op, OperandType type) {
  * @param variables Pointer to the list of variables and their configurations
  * @param settings Pointer to the settings of the generator
  */
-void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings settings) {
+void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, InterpreterSettings settings) {
     // Because stores need to have an actual value to store and the contents of memory/caches cannot be viewed at this point,
     // we need to store all modified data in a struct.
     unordered_map<uint64_t, uint64_t> memMap;
@@ -133,6 +159,9 @@ void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Va
     bool takeBranch;
     bool shouldBeLogged;
     TraceData td;
+
+    // Log the start time
+    auto startTime = chrono::steady_clock::now();
 
     // Group all the interpretation data and trace in a single struct
     td.memMap = &memMap;
@@ -149,8 +178,10 @@ void interpretCode(string code, string& trace, vector<Operation>& ops, vector<Va
     trace.append(APP_VERSION);
     trace.append("\n\n");
 
-    // Interpret until the end of the instructions is reached
+    // Interpret until the end of the instructions is reached or a timeout happens
     while (ops[pc].opType != OP_END) {
+        if (chrono::steady_clock::now() - startTime > chrono::milliseconds(INTERPRETER_TIMEOUT_MS)) throw runtime_error(ERROR_INTRP_TIMEOUT);
+
         if (settings.addComments) trace.append("\n# " + ops[pc].comments + "\n");
         // Fetch the operands' values
         opr1 = fetchOperandValue(td, ops[pc], OPR_OP1);

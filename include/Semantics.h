@@ -102,12 +102,12 @@ typedef struct {
 } Operation;
 
 // Public functions
-string DataTypeToString(DataType type);
-string OperationTypeToString(OperationType type);
-string OperandTypeToString(OperandType type);
-string BranchTypeToString(BranchType type);
-string BranchTypeToOperator(BranchType type);
-string BranchTypeToOpositeOperator(BranchType type);
-string StatementOperatorToString(OperationType opType, StatementType staType);
+string dataTypeToString(DataType type);
+string operationTypeToString(OperationType type);
+string operandTypeToString(OperandType type);
+string branchTypeToString(BranchType type);
+string branchTypeToOperator(BranchType type);
+string branchTypeToOpositeOperator(BranchType type);
+string statementOperatorToString(OperationType opType, StatementType staType);
 uint64_t getDataTypeSize(DataType dt);
 Variable* getVariableByName(vector<Variable>& vars, string name);

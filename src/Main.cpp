@@ -4,6 +4,7 @@ bool debug = false;
 
 /**
  * Parses the CLI arguments.
+ *
  * @param argc 
  * @param argv 
  * @return AppArgs The arguments packed in an AppArgs struct
@@ -22,9 +23,11 @@ AppArgs parseArguments(int argc, char** argv) {
 
     app.add_option("-o,--output", args.savePath, "Path to the output file");
     
-    app.add_option("-v, --variable", args.variableAddresses, "Define a variable's base address (NAME=0x80)")->take_all();
+    app.add_option("-v, --variable", args.variableAddresses, "Define a variable's base address (NAME=0x80)")
+        ->take_all();
 
-    app.add_option("-f, --frequency", args.variableAccessFrequency, "Define a variable's access frequency (always, once, never) (NAME=always)")->take_all();
+    app.add_option("-f, --frequency", args.variableAccessFrequency, "Define a variable's access frequency (always, once, never) (NAME=always)")
+        ->take_all();
 
     app.add_flag("-g,--nogui", args.noGui, "Disable the GUI");
 
@@ -42,15 +45,15 @@ AppArgs parseArguments(int argc, char** argv) {
 }
 
 /**
- * Converts the code to operations and interprets them
+ * Converts the code to operations and interprets them.
  * 
- * @param code 
- * @param trace 
- * @param ops 
- * @param variables 
- * @param settings 
+ * @param code The code
+ * @param trace The trace
+ * @param ops The operations
+ * @param variables The variables
+ * @param settings The interpreter settings
  */
-void generateTrace(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings settings) {
+void generateTrace(string code, string& trace, vector<Operation>& ops, vector<Variable>& variables, InterpreterSettings settings) {
     // Clear previous trace instances
     trace.clear();
     for (Variable& var: variables) var.hasBeenAccessed = false;
@@ -97,7 +100,7 @@ void handleGUIError(runtime_error rt, string& errorMessage, ProgramState& state,
 int main(int argc, char** argv) {
     // Program state and GUI
     ProgramState state = PICK_FILE;
-    GeneratorSettings settings;
+    InterpreterSettings settings;
     string errorMessage;
     bool isReady = false;           // If the user has chosen to generate the trace
     bool cli = false;
@@ -107,14 +110,11 @@ int main(int argc, char** argv) {
     vector<Variable> variables;             // The list of variables that will be extracted from the code
     vector<Operation> opList;               // The list of operations that will get interpreted
 
-    // Arguments
+    // Read the args
     AppArgs args = parseArguments(argc, argv);
 
     // Set up the settings
     settings.addComments = args.addComments;
-    settings.baseAddr = 0x8000000;  // TODO Read this from the config file
-    settings.wordWidth = 32;  // TODO Read this from the config file
-    settings.pageSize = 1024;  // TODO Read this from the config file
     debug = args.debug;
     cli = args.noGui;
 
@@ -123,8 +123,8 @@ int main(int argc, char** argv) {
     if (!args.configPath.empty()) settings.configPath = args.configPath;
     if (!args.savePath.empty()) settings.savePath = args.savePath;
 
-    // If running in CLI only mode
     if (cli) {
+        // If running in CLI only mode
         // Validate that files have been provided
         if (settings.inputPath.empty() || settings.configPath.empty() || settings.savePath.empty()) {
             fprintf(stderr, ERROR_CLI_FILES);
@@ -134,9 +134,11 @@ int main(int argc, char** argv) {
         // Read the trace, parse the variables, generate the trace and save it 
         try {
             code = readFileToString(settings.inputPath);
+            config = readFileToString(settings.configPath);
             parseVariables(code, variables);
+            parseConfigFile(config, settings);
 
-            // Validate that all variables have an address
+            // Get all the variable's addresses from the cli and, optionally, the frequency
             try {
                 parseAddressArgs(variables, args.variableAddresses);
                 parseFrequencyArgs(variables, args.variableAccessFrequency);
@@ -145,6 +147,7 @@ int main(int argc, char** argv) {
                 return 1;
             }
 
+            // Generate and save the trace
             generateTrace(code, trace, opList, variables, settings);
             writeStringToFile(settings.savePath, trace);
             return 0;
@@ -154,6 +157,7 @@ int main(int argc, char** argv) {
             return 1;
         }
     } else {
+        // If running in GUI mode 
         // Create a new GUI
         GUI* gui = new GUI();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -201,12 +205,16 @@ int main(int argc, char** argv) {
                     break;
 
                 case PARSE_VARIABLES:
-                    // Parse the variables
+                    // Parse the variables and configuration file
                     try {
                         parseVariables(code, variables);
+                        parseConfigFile(config, settings);
+
+                        // Set the base address of the variables to the base address of the page, for ease of use. The user can edit them later
+                        for (Variable& v: variables) v.address = settings.baseAddr;
+
                         state = MAIN_WORKSPACE;
                     } catch (const runtime_error& e) {
-                        // If an error happened, store it and kick the user back to the file picker.
                         handleGUIError(e, errorMessage, state, PICK_FILE);
                     }
                     break;
@@ -214,6 +222,7 @@ int main(int argc, char** argv) {
                 case MAIN_WORKSPACE:
                     // Render the main workspace
                     gui->renderMainWorkspace(ogCode, trace, opList, variables, settings, state);
+                    if (!errorMessage.empty()) gui->renderMessage(errorMessage);
                     break;
 
                 case GENERATE_TRACE:
@@ -223,7 +232,6 @@ int main(int argc, char** argv) {
                         generateTrace(code, trace, opList, variables, settings);
                         state = MAIN_WORKSPACE;
                     } catch (const runtime_error& e) {
-                        // If an error happened, store it and kick the user back to the main workspace
                         handleGUIError(e, errorMessage, state, MAIN_WORKSPACE);
                     }
                     break;

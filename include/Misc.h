@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <chrono>
 #include <unordered_map>
 #include <math.h>
 
@@ -42,6 +43,7 @@ using namespace std;
 #define ERROR_FILE_EMPTY            "Error: The input file is empty.\n"
 #define ERROR_FILE_SAVE             "Error: Something went wrong while trying to write the file. Do you have write permissions ?.\n"
 #define ERROR_FILE_SAVE_EMPTY       "Error: The save path is empty. Please, configure a save path first.\n"
+#define ERROR_CONFIG_DIRECTIVES     "Error: Missing directives in config file. Please, check that page_base_address, page_size and word_width exist and have values.\n"
 
 // Parser
 #define ERROR_PARSE_NOVAR           "Error: No variables have been found on the input file.\nCaused by: "
@@ -54,6 +56,11 @@ using namespace std;
 #define ERROR_MALFORMED_FOR         "Error: Malformed for arguments detected.\nCaused by: " 
 #define ERROR_FOR_BRACKETS          "Error: Malformed for brackets detected.\nCaused by: " 
 #define ERROR_UNIDENTIFIED_VAR      "Error: Unidentified variable. Are all variables declared ?\nCaused by: " 
+
+// Interpreter
+#define ERROR_UNALIGNED_VAR         "Error: Unaligned variable access. Are the variable base addresses aligned properly ?\nCaused by: " 
+#define ERROR_OOB_ACCESS            "Error: Out of bounds access. Check that variable accesses fall inside of the page specified in the config file\nCaused by: " 
+#define ERROR_INTRP_TIMEOUT         "Error: The interpretation took too long and was terminated. Check for infinite loops or increase INTERPRETER_TIMEOUT_MS if the code is too large\n" 
 
 // Misc
 #define ERROR_ASSIST_GENERAL        "Error: Something went wrong in the GUI assistant, please try again.\n"
@@ -71,10 +78,11 @@ typedef enum {
     PROGRAM_STATE_COUNT
 } ProgramState;
 
+// Settings for the interpreter
 typedef struct {
     uint64_t baseAddr;     // NuCachis inits memory addresses with incremental numbers starting from the base address. This ensures correctness with the results
     uint64_t pageSize;     // The maximum simulated number of bytes in NuCachis memory
     uint32_t wordWidth;    // The word width from the trace in bits
     string inputPath, configPath, savePath;
     bool addComments;
-} GeneratorSettings;
+} InterpreterSettings;

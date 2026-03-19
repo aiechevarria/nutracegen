@@ -1,6 +1,5 @@
 #include "GUI.h"
 #include "Logo.cpp"
-#include "Misc.h"
 
 ImFont* defaultFont;
 
@@ -98,7 +97,7 @@ GLuint GUI::LoadImageFromCSource(const unsigned char* rawData, int width, int he
  * @param settings The generator settings, for the config and input paths
  * @param state The current state of the program. Switches to the next assistant step when clicked
  */
-void GUI::renderPicker(GeneratorSettings& settings, ProgramState& state) {
+void GUI::renderPicker(InterpreterSettings& settings, ProgramState& state) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms
@@ -180,7 +179,7 @@ void GUI::renderPicker(GeneratorSettings& settings, ProgramState& state) {
  * @param message The message to display.
  * @param isError If true, a red exclamation will get displayed, if false, a blue information sign.
  */
-void GUI::renderMessage(string message, bool isError) {
+void GUI::renderMessage(string& message, bool isError) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms
@@ -225,7 +224,7 @@ void GUI::renderMessage(string message, bool isError) {
  * @param settings The settings of the generator.
  * @param state If the user has clicked on the run button or not
  */
-void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& ops, vector<Variable>& variables, GeneratorSettings& settings, ProgramState& state) {
+void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& ops, vector<Variable>& variables, InterpreterSettings& settings, ProgramState& state) {
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
     // Set a size and position based on the current workspace dimms
@@ -260,7 +259,7 @@ void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& op
         ImGui::TableSetupColumn("Variable Name");
         ImGui::TableSetupColumn("Datatype");
         ImGui::TableSetupColumn("Access Frequency");
-        ImGui::TableSetupColumn("Address (In hexadecimal)");
+        ImGui::TableSetupColumn("Address (In hexadecimal)", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableHeadersRow();
 
         uint32_t id = 0;
@@ -272,7 +271,7 @@ void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& op
             ImGui::Text("%s", var.name.c_str());
 
             ImGui::TableNextColumn();
-            ImGui::Text("%s", DataTypeToString(var.type).c_str());
+            ImGui::Text("%s", dataTypeToString(var.type).c_str());
 
             ImGui::TableNextColumn();
             const char* freqs[] = {"Always", "Once", "Never"};
@@ -284,7 +283,7 @@ void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& op
             ImGui::TextUnformatted("0x");
             ImGui::SameLine();
             ImGui::PushFont(defaultFont);               // Switch to the default monospace font
-            ImGui::InputScalar(("##" + var.name).c_str(), ImGuiDataType_U64, &var.address, nullptr, nullptr, "%016llX", ImGuiInputTextFlags_CharsHexadecimal);
+            ImGui::InputScalar(("##" + var.name).c_str(), ImGuiDataType_U64, &var.address, nullptr, nullptr, "%llX", ImGuiInputTextFlags_CharsHexadecimal);
             ImGui::PopFont();
             id++;
         }
@@ -297,11 +296,6 @@ void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& op
     ImGui::Dummy(ImVec2(0.0f, 15.0f));
 
     ImGui::Text("Generation settings");
-
-    ImGui::Text("Page Base Address (must match page_base_address in the Nucachis config) 0x");
-    ImGui::SameLine();
-    ImGui::InputScalar("## BaseSimAddr", ImGuiDataType_U64, &settings.baseAddr, nullptr, nullptr, "%016llX", ImGuiInputTextFlags_CharsHexadecimal);
-
     ImGui::Checkbox("Add comments to the trace", &settings.addComments);
 
     if (ImGui::Button("Destination file", ImVec2(125.0f, 0.0f))) {
@@ -376,7 +370,7 @@ void GUI::renderMainWorkspace(string& code, string& trace, vector<Operation>& op
                     ImGui::TableNextColumn();
 
                     // Name of the operation. On branches also add the branch type
-                    (op.opType == OP_BRANCH) ? ImGui::Text("%s%s", OperationTypeToString(op.opType).c_str(), BranchTypeToString(op.bType).c_str()) : ImGui::Text("%s", OperationTypeToString(op.opType).c_str());
+                    (op.opType == OP_BRANCH) ? ImGui::Text("%s%s", operationTypeToString(op.opType).c_str(), branchTypeToString(op.bType).c_str()) : ImGui::Text("%s", operationTypeToString(op.opType).c_str());
                     ImGui::TableNextColumn();
 
                     // If there is a destination, add it 
