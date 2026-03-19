@@ -1,0 +1,9 @@
+int var1[10];
+int var2[5];
+int var3[20];
+
+int i = 1;
+var1[0] = 0;
+var1[i] = 1;
+var1[i] += 1;
+var1[i] = var2[0] + var3[0];

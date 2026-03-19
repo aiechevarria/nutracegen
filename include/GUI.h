@@ -25,6 +25,14 @@
 #define MESSAGE_WINDOW_WIDTH  0.40
 #define MESSAGE_WINDOW_HEIGHT 0.23
 
+// Others
+#define CODE_WINDOW_HEIGHT 0.35
+#define VAR_WINDOW_HEIGHT 0.35
+#define SETTINGS_WINDOW_HEIGHT 0.3
+#define OPS_WINDOW_HEIGHT 0.35
+
+#define SEPARATOR_HEIGHT 10.0f
+
 #define DEFAULT_TABLE_FLAGS ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_RowBg
 
 class GUI {

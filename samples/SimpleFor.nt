@@ -1,0 +1,10 @@
+int i;
+int a[];
+int b[];
+int c[];
+
+a[0] = 1234;
+
+for (i = 0; i < 10; i++) {
+	a[i] = b[i]+c[i];
+}

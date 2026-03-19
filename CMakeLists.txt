@@ -1,4 +1,4 @@
-project(NuTracegen)
+project(NuTracer)
 
 cmake_minimum_required(VERSION 3.5.1)
 set(CMAKE_CXX_STANDARD 17)
@@ -37,7 +37,7 @@ set(IMGUIFILEDIALOG_SOURCES
 
 
 # Combine both
-add_executable(nutracegen
+add_executable(nutracer
     ${PROJECT_SOURCES}
     ${IMGUI_SOURCES}
     ${IMGUIFILEDIALOG_SOURCES}
@@ -47,7 +47,7 @@ add_executable(nutracegen
 find_package(OpenGL REQUIRED)
 find_package(SDL2 REQUIRED)
 
-target_link_libraries(nutracegen
+target_link_libraries(nutracer
     SDL2::SDL2
     OpenGL::GL
 )
